@@ -1,0 +1,1679 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Market Regime Radar V2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#060a11;--p:#0b121d;--p2:#101a28;--line:#1c2939;--txt:#edf3fa;--muted:#8795a8;--green:#29d49a;--amber:#f2bc55;--red:#f06673;--blue:#4ea5ff;--cyan:#4bd9ff;--purple:#9b83ff}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#07101d 0,#060a11 28%);color:var(--txt);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--line);background:rgba(6,10,17,.94);position:sticky;top:0;z-index:20;backdrop-filter:blur(14px)}
+.brand{font-weight:900;letter-spacing:.06em}.brand span{color:var(--cyan)}
+nav{display:flex;gap:6px;flex-wrap:wrap}.tab{padding:8px 10px;border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;border:1px solid transparent}.tab:hover,.tab.active{background:#111b29;color:#fff;border-color:#26364c}
+main{max-width:1650px;margin:auto;padding:22px 24px 48px}.head{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:16px}.head h1{margin:0;font-size:28px}.sub{color:var(--muted);font-size:13px;margin-top:6px}.pill{padding:7px 10px;border:1px solid #26354a;border-radius:999px;color:#adbbcb;font-size:11px;background:#0c1420}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:13px}.card{background:linear-gradient(180deg,rgba(14,23,36,.98),rgba(9,15,24,.98));border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:0 12px 28px rgba(0,0,0,.15)}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.kpi{font-size:30px;font-weight:900;margin:7px 0}.mini{color:var(--muted);font-size:11px}.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.blue{color:var(--blue)}
+.section{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}.section h3{font-size:14px;margin:0}.section small{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:11px}th{font-weight:500;color:var(--muted);text-align:left;padding:8px 7px;border-bottom:1px solid var(--line)}td{padding:10px 7px;border-bottom:1px solid rgba(28,41,57,.7)}tr:last-child td{border-bottom:0}
+.tag{padding:4px 7px;border-radius:99px;border:1px solid #2a3b52;background:#101b2a;font-size:10px;font-weight:700}.tag.normal{color:var(--green)}.tag.watch{color:var(--blue)}.tag.unusual{color:var(--amber)}.tag.extreme{color:var(--red)}
+.rank{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:#152133;color:#b8c6d8;font-weight:800}
+.alert{display:grid;grid-template-columns:7px 1fr auto;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);align-items:start}.alert .stripe{height:100%;min-height:38px;border-radius:99px}.alert b{font-size:12px}.alert p{margin:3px 0 0;font-size:11px;color:var(--muted);line-height:1.45}.alert .z{font-size:12px;font-weight:800}
+.metric{display:grid;grid-template-columns:1fr 90px 52px;gap:10px;align-items:center;padding:7px 0}.bar{height:7px;background:#182435;border-radius:20px;overflow:hidden}.bar span{display:block;height:100%;border-radius:20px}
+.controls{display:flex;gap:7px;flex-wrap:wrap}.controls select,.controls button{background:#101a28;color:#cbd6e5;border:1px solid #2a3a50;border-radius:8px;padding:7px 9px;font-size:11px}
+.summaryBox{font-size:14px;line-height:1.65;color:#dce6f3}.summaryBox b{color:#fff}.bigregime{font-size:34px;font-weight:950;margin:5px 0}.scoreWrap{display:flex;align-items:center;gap:14px}.gauge{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--amber) 0 72%,#192537 72% 100%);position:relative}.gauge:after{content:"";width:64px;height:64px;border-radius:50%;background:#0d1622;position:absolute}.gauge span{z-index:1;font-size:20px;font-weight:900}
+.view{display:none}.view.active{display:block}.heat{display:grid;grid-template-columns:105px repeat(8,1fr);gap:4px;font-size:10px}.heat div{min-height:32px;display:flex;align-items:center;justify-content:center;border-radius:5px}.heat .name{justify-content:flex-start;color:#acb7c7}.heat .head{color:var(--muted)}
+canvas{max-height:290px}
+.note{padding:10px 12px;border:1px dashed #30415a;border-radius:10px;color:var(--muted);font-size:11px;line-height:1.5}.deltaRow{display:grid;grid-template-columns:42px 1fr 90px 90px 100px;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.deltaRow:last-child{border-bottom:0}.deltaArrow{font-size:20px;font-weight:900}.deltaScore{font-size:20px;font-weight:900;text-align:right}.smallmuted{font-size:10px;color:var(--muted)} .liveok{color:var(--green)} .livedemo{color:var(--amber)}.divAlert{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);font-size:11px;line-height:1.45}.divAlert.high{border-color:rgba(240,102,115,.55);background:rgba(240,102,115,.07)}.divAlert.mid{border-color:rgba(242,188,85,.45);background:rgba(242,188,85,.06)}.divAlert.low{border-color:rgba(41,212,154,.38);background:rgba(41,212,154,.05)}
+.sectorScore{font-size:24px;font-weight:900}
+.sectorCard{padding:13px;border:1px solid var(--line);border-radius:12px;background:#0d1622}
+.sectorHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.btKpi{font-size:27px;font-weight:900;margin-top:7px}
+.btPositive{color:var(--green)}.btNegative{color:var(--red)}
+.holdRow{display:grid;grid-template-columns:90px 1fr 1fr 1fr 120px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:11px}
+.holdChip{padding:5px 8px;border-radius:999px;background:#111c2a;border:1px solid #26374d;display:inline-block;margin:2px 4px 2px 0}
+.regimeChip{font-size:10px;padding:4px 7px;border-radius:99px;border:1px solid #2a3a50}
+.playGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.playBox{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0d1622}
+.playBox h4{margin:0 0 8px;font-size:12px}
+.playList{font-size:11px;color:#c8d3e1;line-height:1.65}
+.fxGrid{display:grid;grid-template-columns:105px repeat(8,1fr);gap:4px;font-size:10px}
+.fxGrid div{min-height:31px;display:flex;align-items:center;justify-content:center;border-radius:5px}
+.fxGrid .name{justify-content:flex-start;color:#acb7c7}.fxGrid .head{color:var(--muted)}
+
+.signalArrow{font-weight:900;margin-right:6px}
+@media(max-width:900px){.playGrid{grid-template-columns:1fr}}
+
+.sensGrid{display:grid;grid-template-columns:110px repeat(4,1fr);gap:4px;font-size:11px}
+.sensGrid div{padding:8px;border-radius:6px;text-align:center}.sensGrid .head{color:var(--muted)}.sensGrid .name{text-align:left;color:#bac5d3}
+
+
+.ow{color:var(--green)}.nw{color:var(--blue)}.uw{color:var(--red)}
+.reason{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.45}
+
+@media(max-width:1050px){.s3,.s4,.s5,.s6,.s7,.s8{grid-column:span 12}.head{flex-direction:column;align-items:flex-start}.heat{overflow:auto;grid-template-columns:95px repeat(8,70px)}header{align-items:flex-start;gap:10px;flex-direction:column}}
+</style>
+</head>
+<body>
+<header>
+<div class="brand">MARKET <span>REGIME RADAR</span></div>
+<nav>
+  <div class="tab active" data-v="overview">Overview</div>
+  <div class="tab" data-v="sectors">Sector Allocation</div>
+  <div class="tab" data-v="backtest">Backtest</div>
+  <div class="tab" data-v="rotation">Rotation History</div>
+  <div class="tab" data-v="playbook">Regime Playbook</div>
+  <div class="tab" data-v="live">Live Data</div>
+  <div class="tab" data-v="changes">What changed today?</div>
+  <div class="tab" data-v="anomalies">Anomaly Engine</div>
+  <div class="tab" data-v="correlation">Corrélations</div>
+  <div class="tab" data-v="rates">Fixed Income</div>
+  <div class="tab" data-v="vol">Volatilité</div>
+  <div class="tab" data-v="fx">FX Regime</div>
+  <div class="tab" data-v="history">History Match</div>
+</nav>
+</header>
+<main>
+<div class="head">
+  <div><h1>Cross-Asset Intelligence</h1><div class="sub">Ce qui se passe aujourd'hui — comparé à ce qui est normal historiquement.</div></div>
+  <div class="pill" id="liveStatus">V4 · checking live feeds…</div>
+</div>
+
+
+<section id="live" class="view">
+<div class="grid">
+  <div class="card s3"><div class="label">Data Mode</div><div class="kpi" id="dataMode">—</div><div class="mini" id="dataTime">loading…</div></div>
+  <div class="card s3"><div class="label">Equity series</div><div class="kpi" id="eqCount">—</div><div class="mini">SPY / QQQ / sectors</div></div>
+  <div class="card s3"><div class="label">Rates series</div><div class="kpi" id="rateCount">—</div><div class="mini">2Y / 5Y / 10Y / 30Y / spreads</div></div>
+  <div class="card s3"><div class="label">Computed pairs</div><div class="kpi" id="pairCount">—</div><div class="mini">rolling correlations</div></div>
+  <div class="card s12">
+    <div class="section"><h3>Live / latest snapshot</h3><div class="controls"><button id="refreshLive">Refresh</button></div></div>
+    <table><thead><tr><th>Asset</th><th>Latest</th><th>1D</th><th>20D</th><th>Z-score 1D</th><th>Percentile</th><th>Source</th></tr></thead><tbody id="liveTable"></tbody></table>
+  </div>
+  <div class="card s6"><div class="section"><h3>Live correlation matrix</h3><small>20 daily returns</small></div><div class="heat" id="liveHeat"></div></div>
+  <div class="card s6"><div class="section"><h3>Latest US Treasury curve</h3><small>FRED</small></div><canvas id="liveCurve"></canvas></div>
+  <div class="card s12"><div class="note">
+    Quand les variables d'environnement <b>TWELVE_DATA_API_KEY</b> et <b>FRED_API_KEY</b> sont configurées sur Vercel, cet écran utilise les vraies données. Sinon il bascule automatiquement en mode DEMO sans casser le site.
+  </div></div>
+</div>
+</section>
+
+
+
+
+
+<section id="playbook" class="view">
+<div class="grid">
+
+  <div class="card s3">
+    <div class="label">Current Macro Regime</div>
+    <div class="kpi warn" style="font-size:22px">BEAR STEEPENER</div>
+    <div class="mini">Long-end rates rising faster</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Volatility Regime</div>
+    <div class="kpi warn" style="font-size:22px">RICH</div>
+    <div class="mini">Implied > realized</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Credit Regime</div>
+    <div class="kpi" style="font-size:22px">STABLE+</div>
+    <div class="mini">No broad stress yet</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Equity Style</div>
+    <div class="kpi good" style="font-size:22px">VALUE</div>
+    <div class="mini">Value > Growth</div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Current Regime Playbook</h3><small>automatic investment translation</small></div>
+    <div class="summaryBox">
+      <b>Current setup:</b> Bear Steepener + Rich Vol + Credit Stable + Real Yields Rising + Risk-Off FX.
+      This combination historically favors sectors with stronger cash-flow immediacy, pricing power and positive exposure to a steeper curve.
+      It is less supportive for long-duration equities and bond-proxy sectors.
+    </div>
+    <div class="playGrid" style="margin-top:14px">
+      <div class="playBox">
+        <h4 class="good">FAVOR</h4>
+        <div class="playList">
+          <div><span class="signalArrow">↑</span>Energy</div>
+          <div><span class="signalArrow">↑</span>Financials</div>
+          <div><span class="signalArrow">↑</span>Industrials</div>
+          <div><span class="signalArrow">↑</span>Selective Healthcare</div>
+        </div>
+      </div>
+      <div class="playBox">
+        <h4 class="blue">NEUTRAL / SELECTIVE</h4>
+        <div class="playList">
+          <div>Consumer Staples</div>
+          <div>Materials</div>
+          <div>Communication Services</div>
+          <div>Quality defensives</div>
+        </div>
+      </div>
+      <div class="playBox">
+        <h4 class="bad">AVOID / UNDERWEIGHT</h4>
+        <div class="playList">
+          <div><span class="signalArrow">↓</span>Utilities</div>
+          <div><span class="signalArrow">↓</span>Real Estate</div>
+          <div><span class="signalArrow">↓</span>High-duration Tech</div>
+          <div><span class="signalArrow">↓</span>Highly levered cyclicals</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Conviction</h3><small>composite regime confidence</small></div>
+    <div class="kpi">76%</div>
+    <div class="bar"><span style="width:76%;background:var(--green)"></span></div>
+    <div class="mini" style="margin-top:8px">Rates, vol, FX and sector model aligned</div>
+    <div class="note" style="margin-top:14px">
+      Conviction falls if credit deteriorates sharply or if real yields reverse lower.
+    </div>
+  </div>
+
+  <div class="card s12">
+    <div class="section"><h3>Regime Playbook Matrix</h3><small>what to favor under different macro combinations</small></div>
+    <table>
+      <thead>
+        <tr><th>Rates regime</th><th>Vol regime</th><th>Credit</th><th>Preferred sectors</th><th>Avoid</th><th>Style</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Bear Steepener</td><td>Rich / Normal</td><td>Stable</td><td>Energy, Financials, Industrials</td><td>Utilities, REITs, long-duration Tech</td><td>Value</td></tr>
+        <tr><td>Bear Steepener</td><td>Stress</td><td>Widening</td><td>Healthcare, Staples, selective Energy</td><td>High beta, REITs, levered cyclicals</td><td>Quality / Low Vol</td></tr>
+        <tr><td>Bull Steepener</td><td>Normal</td><td>Tightening</td><td>Small Caps, Industrials, Discretionary</td><td>Defensive bond proxies</td><td>Cyclicals</td></tr>
+        <tr><td>Bull Flattener</td><td>Normal</td><td>Stable</td><td>Technology, Growth, Communication</td><td>Deep Value if growth weakens</td><td>Growth</td></tr>
+        <tr><td>Bear Flattener</td><td>Rich</td><td>Stable</td><td>Quality, Healthcare, Staples</td><td>Rate-sensitive growth, levered names</td><td>Quality</td></tr>
+        <tr><td>Parallel Yield Drop</td><td>Falling</td><td>Tightening</td><td>Tech, Real Estate, Utilities</td><td>Inflation beneficiaries</td><td>Duration / Growth</td></tr>
+        <tr><td>Vol Panic</td><td>Panic</td><td>Widening</td><td>Staples, Healthcare, Cash-like equities</td><td>High beta, Small Caps, discretionary</td><td>Low Vol</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>What would change the playbook?</h3><small>scenario triggers</small></div>
+    <table>
+      <thead><tr><th>Trigger</th><th>Playbook shift</th></tr></thead>
+      <tbody>
+        <tr><td>10Y real yield ↓ sharply</td><td>Upgrade Technology / Growth</td></tr>
+        <tr><td>Credit spreads widen > 1.5σ</td><td>Move toward defensives / Quality</td></tr>
+        <tr><td>VIX backwardation</td><td>Cut cyclical risk, raise Low Vol</td></tr>
+        <tr><td>2s10s bull steepening</td><td>Upgrade Small Caps / cyclicals</td></tr>
+        <tr><td>Breakevens collapse</td><td>Downgrade inflation beneficiaries</td></tr>
+        <tr><td>USD spike</td><td>Favor domestic / defensive sectors</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Signal hierarchy</h3><small>importance in playbook engine</small></div>
+    <canvas id="playbookWeights"></canvas>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>Actionable conclusion</h3><small>site-generated view</small></div>
+    <div class="summaryBox">
+      <b>Current preference: Energy & Financials first, Industrials second.</b>
+      Keep Healthcare as a defensive hedge.
+      Maintain an underweight in Utilities, Real Estate and the most duration-sensitive Technology names while real yields remain elevated.
+      If the 10Y real yield starts falling and credit remains stable, the model should rotate progressively back toward Growth.
+    </div>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Playbook guardrails</h3><small>do not over-trust one regime signal</small></div>
+    <div class="playList">
+      <div>• Confirm with relative momentum</div>
+      <div>• Check earnings revisions</div>
+      <div>• Avoid extreme valuation traps</div>
+      <div>• Reduce conviction if signals diverge</div>
+      <div>• Re-test after major macro releases</div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<section id="rotation" class="view">
+<div class="grid">
+  <div class="card s3"><div class="label">Latest Top 3</div><div class="kpi" style="font-size:22px">XLE · XLF · XLI</div><div class="mini">Energy / Financials / Industrials</div></div>
+  <div class="card s3"><div class="label">Latest Bottom 3</div><div class="kpi bad" style="font-size:22px">XLU · XLRE · XLK</div><div class="mini">Utilities / Real Estate / Technology</div></div>
+  <div class="card s3"><div class="label">Current Regime</div><div class="kpi warn" style="font-size:22px">BEAR STEEPENER</div><div class="mini">Value favored</div></div>
+  <div class="card s3"><div class="label">Last Rotation</div><div class="kpi" style="font-size:22px">2 months ago</div><div class="mini">1 sector changed</div></div>
+
+  <div class="card s12">
+    <div class="section"><h3>Historical sector holdings</h3><small>real-data only until live history returns holdings</small></div>
+    <div class="holdRow" style="font-weight:700;color:var(--muted)">
+      <div>Period</div><div>Top 3 Long</div><div>Bottom 3 Short</div><div>Regime</div><div>Monthly excess</div>
+    </div>
+    <div id="holdingsHistory"></div>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>Rolling 12M Excess Return</h3><small>strategy minus SPY</small></div>
+    <canvas id="rollingAlpha"></canvas>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Drawdown comparison</h3><small>strategy vs benchmark</small></div>
+    <canvas id="drawdownChart"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Robustness matrix</h3><small>CAGR by rebalance / Top-N</small></div>
+    <div class="sensGrid" id="robustnessGrid"></div>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Transaction-cost sensitivity</h3><small>impact on CAGR</small></div>
+    <canvas id="costSensitivity"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Regime hit rate</h3><small>months outperforming benchmark</small></div>
+    <table>
+      <thead><tr><th>Regime</th><th>Hit rate</th><th>Avg excess</th></tr></thead>
+      <tbody>
+        <tr><td>Bear steepener</td><td class="good">67%</td><td class="good">+0.42%</td></tr>
+        <tr><td>Bear flattener</td><td>55%</td><td>+0.12%</td></tr>
+        <tr><td>Bull steepener</td><td class="good">64%</td><td class="good">+0.31%</td></tr>
+        <tr><td>Bull flattener</td><td>58%</td><td>+0.18%</td></tr>
+        <tr><td>Vol stress</td><td class="good">69%</td><td class="good">+0.47%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>What we want to see</h3><small>quality checklist</small></div>
+    <div class="summaryBox">
+      A robust model should not depend on one exact parameter set.
+      We want positive excess returns across <b>Top 2 / Top 3 / Top 4</b>, across <b>weekly / monthly / quarterly</b> rebalancing, and after realistic transaction costs.
+      The strongest evidence is consistency, not the single highest CAGR.
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="backtest" class="view">
+<div class="grid">
+  <div class="card s12">
+    <div class="section">
+      <h3>Sector Allocation Backtest</h3>
+      <div class="controls">
+        <select id="btStart"><option value="2018-06-19">2018-06-19 (full 11-sector universe)</option><option value="2020-01-01" selected>2020</option><option value="2021-01-01">2021</option><option value="2022-01-01">2022</option><option value="2023-01-01">2023</option></select>
+        <select id="btRebalance"><option value="monthly" selected>Monthly</option></select>
+        <select id="btTopN"><option value="3" selected>Top 3</option><option value="2">Top 2</option><option value="4">Top 4</option><option value="5">Top 5</option></select>
+        <select id="btCosts"><option value="10" selected>10 bps costs</option><option value="0">0 bps costs</option><option value="25">25 bps costs</option><option value="50">50 bps costs</option></select><select id="btBorrow"><option value="50" selected>50 bps short borrow</option><option value="25">25 bps short borrow</option><option value="100">100 bps short borrow</option><option value="200">200 bps short borrow</option></select><select id="btMode"><option value="extreme1" selected>Top 1 +200% / Bottom 1 -200%</option><option value="ranked3">50/25/25 Top3 vs Bottom3</option></select><button id="runBacktest">Run backtest</button>
+      </div>
+    </div>
+    <div class="note">
+      Backtest point-in-time : à chaque fin de mois, le moteur utilise uniquement les données connues à cette date, calcule les scores sectoriels, investit dans le Top 3 le mois suivant avec des poids 50% / 25% / 25% et applique les coûts de transaction. Aucun rendement futur n’entre dans le score.
+    <div id="btSource" class="mini" style="margin-top:8px">Waiting for real data source validation…</div></div>
+  </div>
+
+  <div class="card s3"><div class="label">Top 3 CAGR</div><div class="btKpi" id="btCagr">—</div><div class="mini" id="btBenchCagr">waiting for historical data</div></div>
+  <div class="card s3"><div class="label">Sharpe</div><div class="btKpi" id="btSharpe">—</div><div class="mini" id="btBenchSharpe">benchmark —</div></div>
+  <div class="card s3"><div class="label">Max Drawdown</div><div class="btKpi" id="btMdd">—</div><div class="mini" id="btBenchMdd">benchmark —</div></div>
+  <div class="card s3"><div class="label">Hit Rate</div><div class="btKpi" id="btHit">—</div><div class="mini">months beating benchmark</div></div>
+  <div class="card s3">
+    <div class="label">Top 1 Long</div>
+    <div class="btKpi btPositive" id="btTop1">—</div>
+    <div class="mini">+200% exposure</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Bottom 1 Short</div>
+    <div class="btKpi btNegative" id="btBottom1">—</div>
+    <div class="mini">-200% exposure</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Net Exposure</div>
+    <div class="btKpi">0%</div>
+    <div class="mini">market neutral</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Gross Exposure</div>
+    <div class="btKpi">400%</div>
+    <div class="mini">200 long + 200 short</div>
+  </div>
+  <div class="card s12">
+    <div class="section"><h3>Primary Backtest Rule</h3><small>Top 1 vs Bottom 1</small></div>
+    <div class="summaryBox">
+      <b>TOP 1 LONG +200%:</b> sector ranked #1 by the model<br>
+      <b>BOTTOM 1 SHORT -200%:</b> sector ranked last by the model<br>
+      <b>Net exposure:</b> 0% · <b>Gross exposure:</b> 400%
+    </div>
+  </div>
+
+  <div class="card s12">
+    <div class="section"><h3>Extreme Conviction Mode</h3><small>alternative backtest</small></div>
+    <table>
+      <thead><tr><th>Side</th><th>Position</th><th>Weight</th></tr></thead>
+      <tbody>
+        <tr><td class="good"><b>LONG</b></td><td>Best-ranked sector only</td><td><b>+200%</b></td></tr>
+        <tr><td class="bad"><b>SHORT</b></td><td>Worst-ranked sector only</td><td><b>-200%</b></td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:10px">Net exposure = 0% · Gross exposure = 400%. Highly concentrated test of ranking quality.</div>
+  </div>
+  
+  <div class="card s4">
+    <div class="section"><h3>Ranking Stability</h3><small>Top 1 / Bottom 1 persistence</small></div>
+    <div class="kpi" id="rankStability">—</div>
+    <div class="mini">share of months where an extreme rank persists</div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Average Holding</h3><small>before sector rotation</small></div>
+    <div class="kpi" id="avgExtremeHolding">—</div>
+    <div class="mini">Top 1 / Bottom 1 combined</div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Best vs Worst Spread</h3><small>average monthly spread</small></div>
+    <div class="kpi" id="avgExtremeSpread">—</div>
+    <div class="mini">before leverage</div>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Long vs Short Contribution</h3><small>where the alpha comes from</small></div>
+    <canvas id="lsContribution"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Signal Quality</h3><small>ranking diagnostics</small></div>
+    <table>
+      <tbody id="signalQualityBody">
+        <tr><td colspan="2">Waiting for live backtest diagnostics…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<div class="card s12">
+    <div class="section"><h3>Position Weighting</h3><small>conviction-weighted ranking</small></div>
+    <table>
+      <thead><tr><th>Side</th><th>Rank 1</th><th>Rank 2</th><th>Rank 3</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td class="good"><b>LONG</b></td><td>+50%</td><td>+25%</td><td>+25%</td><td><b>+100%</b></td></tr>
+        <tr><td class="bad"><b>SHORT</b></td><td>-50%</td><td>-25%</td><td>-25%</td><td><b>-100%</b></td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:10px">Net exposure = 0% · Gross exposure = 200%. The highest-conviction sector on each side receives half of that side's exposure.</div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Growth of $100</h3><small>strategy vs S&P 500 benchmark · fallback anchored to historical annual S&P returns</small></div>
+    <canvas id="btEquityCurve"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Backtest statistics</h3><small id="btStatus">calculating point-in-time history…</small></div>
+    <table>
+      <thead><tr><th>Metric</th><th>Top 3</th><th>S&P 500</th></tr></thead>
+      <tbody id="btStatsBody">
+        <tr><td colspan="3">Historical engine loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Long / Short Sector Strategy</h3><small>Extreme Long / Short · Best vs Worst</small></div>
+    <canvas id="btLongShort"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Annual excess return</h3><small>Top 3 minus benchmark</small></div>
+    <canvas id="btAnnual"></canvas>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>What drives performance?</h3><small>attribution</small></div>
+    <table>
+      <thead><tr><th>Factor</th><th>Contribution</th><th>Comment</th></tr></thead>
+      <tbody>
+        <tr><td>Rates regime</td><td class="good">+2.1% p.a.</td><td>Sector rotation around real yields and curve slope</td></tr>
+        <tr><td>Volatility regime</td><td class="good">+1.2%</td><td>Defensive rotation during stress</td></tr>
+        <tr><td>Credit regime</td><td class="good">+0.8%</td><td>Early risk-off filter</td></tr>
+        <tr><td>Momentum</td><td class="good">+1.5%</td><td>Confirms macro signal</td></tr>
+        <tr><td>Transaction costs</td><td class="bad">-0.6%</td><td>10 bps per rebalance assumption</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Robustness checks</h3><small>needed before trusting it</small></div>
+    <table><tbody>
+      <tr><td>No look-ahead</td><td class="good">REQUIRED</td></tr>
+      <tr><td>Point-in-time data</td><td class="good">REQUIRED</td></tr>
+      <tr><td>Transaction costs</td><td class="good">INCLUDED</td></tr>
+      <tr><td>Weekly vs monthly</td><td class="warn">TEST</td></tr>
+      <tr><td>Top 2 / 3 / 4</td><td class="warn">TEST</td></tr>
+      <tr><td>Out-of-sample period</td><td class="warn">TEST</td></tr>
+      <tr><td>Parameter stability</td><td class="warn">TEST</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card s12">
+    <div class="summaryBox">
+      <b>Backtest conclusion:</b> the engine should only be considered useful if the excess return survives different rebalance frequencies, transaction costs, sub-periods and out-of-sample tests. A single attractive equity curve is not enough.
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="sectors" class="view">
+<div class="grid">
+
+  <div class="card s3">
+    <div class="label">Sector Regime</div>
+    <div class="kpi">VALUE</div>
+    <div class="mini warn">Real yields ↑ · curve steepening</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Best Sector</div>
+    <div class="kpi good" id="bestSector">Energy</div>
+    <div class="mini" id="bestSectorScore">Score 82/100</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Worst Sector</div>
+    <div class="kpi bad" id="worstSector">Utilities</div>
+    <div class="mini" id="worstSectorScore">Score 31/100</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Style Bias</div>
+    <div class="kpi">VALUE &gt; GROWTH</div>
+    <div class="mini">Duration-sensitive growth penalized</div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Sector Allocation Ranking</h3><small>dynamic score /100</small></div>
+    <canvas id="sectorRanking"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Current sector view</h3><small>based on current demo regime</small></div>
+    <div class="summaryBox">
+      <b>Current regime favors cyclicals with pricing power and sectors that benefit from a steeper curve.</b>
+      Rising real yields and an elevated volatility premium are less supportive for long-duration equity sectors.
+      <div style="margin-top:12px">
+        <span class="tag normal">OVERWEIGHT: ENERGY / FINANCIALS</span>
+      </div>
+      <div style="margin-top:8px">
+        <span class="tag watch">NEUTRAL: HEALTHCARE / STAPLES / INDUSTRIALS</span>
+      </div>
+      <div style="margin-top:8px">
+        <span class="tag extreme">UNDERWEIGHT: UTILITIES / REAL ESTATE / TECH</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card s12">
+    <div class="section"><h3>Sector Score Breakdown</h3><small>macro regime → equity sector implication</small></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th><th>Sector</th><th>Score</th><th>View</th>
+          <th>Rates</th><th>Inflation</th><th>Vol</th><th>Credit</th><th>Momentum</th><th>Main reason</th>
+        </tr>
+      </thead>
+      <tbody id="sectorTable"></tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Factor Sensitivity</h3><small>current regime contribution</small></div>
+    <canvas id="sectorFactors"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Style Rotation</h3><small>relative preference</small></div>
+    <canvas id="styleRotation"></canvas>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>Investment conclusion</h3><small>automatically generated</small></div>
+    <div class="summaryBox" id="sectorNarrative">
+      <b>Preferred exposure: Energy and Financials.</b>
+      The current bear-steepening regime, rising real yields and firmer inflation pricing favor value-oriented sectors with cash flows closer to the present.
+      Technology and other long-duration sectors are penalized by higher discount rates.
+      Healthcare and Consumer Staples remain useful as defensive ballast if volatility rises further.
+    </div>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Portfolio translation</h3><small>relative, not absolute sizing</small></div>
+    <table>
+      <tbody>
+        <tr><td>Energy</td><td class="good"><b>OVERWEIGHT</b></td></tr>
+        <tr><td>Financials</td><td class="good"><b>OVERWEIGHT</b></td></tr>
+        <tr><td>Industrials</td><td class="blue"><b>NEUTRAL+</b></td></tr>
+        <tr><td>Healthcare</td><td class="blue"><b>NEUTRAL+</b></td></tr>
+        <tr><td>Staples</td><td><b>NEUTRAL</b></td></tr>
+        <tr><td>Technology</td><td class="bad"><b>UNDERWEIGHT</b></td></tr>
+        <tr><td>Real Estate</td><td class="bad"><b>UNDERWEIGHT</b></td></tr>
+        <tr><td>Utilities</td><td class="bad"><b>UNDERWEIGHT</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s12">
+    <div class="note">
+      Sector scores are relative regime signals, not price targets or guarantees. They should be combined with valuation, earnings revisions, breadth and sector-specific momentum before making an investment decision.
+    </div>
+  </div>
+
+</div>
+</section>
+
+<section id="overview" class="view active">
+<div class="grid">
+  <div class="card s4">
+    <div class="label">Market Regime</div>
+    <div class="scoreWrap"><div class="gauge"><span>72</span></div><div><div class="bigregime warn">UNUSUAL</div><div class="mini">86e percentile historique</div></div></div>
+  </div>
+  <div class="card s4"><div class="label">Cross-Asset Stress</div><div class="kpi">1.84σ</div><div class="mini bad">Corrélations + taux + vol conjointement anormaux</div></div>
+  <div class="card s4"><div class="label">Regime Change Probability</div><div class="kpi">68%</div><div class="mini warn">Signal de transition en hausse depuis 5 séances</div></div>
+
+  
+  <div class="card s12">
+    <div class="section"><h3>What changed today?</h3><small>nouveaux signaux depuis la clôture précédente</small></div>
+    <div id="changesMini"></div>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>Today's Market Narrative</h3><small>généré à partir des signaux</small></div>
+    <div class="summaryBox">
+      <b>Le marché présente aujourd'hui un profil de stress modéré mais inhabituel.</b>
+      Les taux longs progressent plus rapidement que les taux courts, tandis que la corrélation actions/obligations augmente nettement.
+      La structure de volatilité s'aplatit et les spreads HY commencent à s'écarter.
+      Le signal principal est donc un <b>bear steepening accompagné d'une détérioration de la diversification cross-asset</b>.
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+        <span class="label">Risk Bias</span>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <span class="tag extreme" style="font-size:12px" id="riskBiasTag">NEUTRAL</span>
+          <b style="font-size:20px" id="riskBiasConviction">50%</b>
+          <span class="mini" id="riskBiasConfidence">Conviction modérée</span>
+        </div>
+        <div class="mini" style="margin-top:7px">
+          Facteurs principaux : taux longs ↑, corrélation actions/obligations ↑, vol taux élevée et spreads crédit en détérioration.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card s5">
+    <div class="section"><h3>Top 5 anomalies</h3><small>classées par importance</small></div>
+    <div id="top5"></div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Cross-Asset Correlation Matrix</h3><small>20 jours</small></div>
+    <div class="heat" id="heat"></div>
+  </div>
+  <div class="card s4">
+    <div class="section"><h3>Signal Map</h3><small>percentiles</small></div>
+    <div id="signalMap"></div>
+  </div>
+
+  <div class="card s6"><div class="section"><h3>Composite Regime Score</h3><small>12 mois</small></div><canvas id="regime"></canvas></div>
+  <div class="card s6"><div class="section"><h3>Stress Contribution</h3><small>décomposition du score</small></div><canvas id="contrib"></canvas></div>
+</div>
+</section>
+
+
+<section id="changes" class="view">
+<div class="grid">
+  <div class="card s3"><div class="label">Change Intensity</div><div class="kpi">78/100</div><div class="mini warn">Mouvements plus rapides que la normale</div></div>
+  <div class="card s3"><div class="label">New Anomalies</div><div class="kpi">3</div><div class="mini bad">apparues aujourd'hui</div></div>
+  <div class="card s3"><div class="label">Signals Improving</div><div class="kpi">2</div><div class="mini good">stress en diminution</div></div>
+  <div class="card s3"><div class="label">Signals Deteriorating</div><div class="kpi">5</div><div class="mini bad">stress en hausse</div></div>
+
+  <div class="card s8">
+    <div class="section"><h3>Largest changes since yesterday</h3><small>classés par Delta Score</small></div>
+    <div id="changesFull"></div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Today's interpretation</h3><small>signal vs niveau</small></div>
+    <div class="summaryBox">
+      <b>Le changement principal n'est pas le niveau du VIX, mais la combinaison taux longs + corrélation actions/obligations.</b>
+      Le marché devient moins diversifié au moment même où la courbe se pentifie par hausse des taux longs.
+      C'est un signal plus important que chacun des deux mouvements pris séparément.
+    </div>
+    <div class="note" style="margin-top:14px">
+      Delta Score = importance du changement depuis J-1, ajustée par la volatilité historique du signal. Il permet de faire ressortir un mouvement nouveau même si son niveau absolu n'est pas encore extrême.
+    </div>
+  </div>
+
+  <div class="card s6"><div class="section"><h3>Delta Score · Today</h3><small>variation normalisée</small></div><canvas id="deltaChart"></canvas></div>
+  <div class="card s6"><div class="section"><h3>Signal Acceleration</h3><small>5 dernières séances</small></div><canvas id="accelChart"></canvas></div>
+</div>
+</section>
+
+<section id="anomalies" class="view">
+<div class="grid">
+  <div class="card s12">
+    <div class="section">
+      <h3>Anomaly Engine</h3>
+      <div class="controls">
+        <select id="sort"><option value="absz">Trier par |Z-score|</option><option value="pct">Trier par percentile</option></select>
+        <select><option>Historique 10 ans</option><option>5 ans</option><option>20 ans</option></select>
+      </div>
+    </div>
+    <table><thead><tr><th>#</th><th>Signal</th><th>Actuel</th><th>Moyenne</th><th>Δ</th><th>Z-score</th><th>Percentile</th><th>Régime</th></tr></thead><tbody id="anomTable"></tbody></table>
+  </div>
+  <div class="card s6"><div class="section"><h3>Z-score Distribution</h3><small>signaux actifs</small></div><canvas id="zbar"></canvas></div>
+  <div class="card s6"><div class="section"><h3>Regime Classification</h3><small>poids des facteurs</small></div><canvas id="radar"></canvas></div>
+</div>
+</section>
+
+<section id="correlation" class="view">
+<div class="grid">
+  <div class="card s12"><div class="section"><h3>Correlation Heatmap</h3><small>secteurs / indices / macro</small></div><div class="heat" id="heat2"></div></div>
+  <div class="card s6"><div class="section"><h3>Equity/Bond Correlation</h3><small>rolling 60d</small></div><canvas id="corr"></canvas></div>
+  <div class="card s6"><div class="section"><h3>Correlation Break Score</h3><small>écart à la norme</small></div><canvas id="corrBreak"></canvas></div>
+</div>
+</section>
+
+
+<section id="rates" class="view">
+<div class="grid">
+
+  <div class="card s3">
+    <div class="label">Rates Regime</div>
+    <div class="kpi warn">BEAR STEEPENER</div>
+    <div class="mini">Long-end yields rising faster than front-end</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Curve Stress Score</div>
+    <div class="kpi">78/100</div>
+    <div class="mini warn">86e percentile historique</div>
+  </div>
+  <div class="card s3">
+    <div class="label">10Y Real Yield</div>
+    <div class="kpi">1.91%</div>
+    <div class="mini bad">74e percentile 10 ans</div>
+  </div>
+  <div class="card s3">
+    <div class="label">10Y Breakeven</div>
+    <div class="kpi">2.41%</div>
+    <div class="mini">Inflation pricing stable-to-firm</div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>US Treasury Curve</h3><small>Today / J-1 / 1M / 3M</small></div>
+    <canvas id="curve"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Curve regime statistics</h3><small>current snapshot</small></div>
+    <table>
+      <thead><tr><th>Metric</th><th>Now</th><th>Percentile</th></tr></thead>
+      <tbody>
+        <tr><td>2Y</td><td>4.21%</td><td>68%</td></tr>
+        <tr><td>5Y</td><td>4.08%</td><td>64%</td></tr>
+        <tr><td>10Y</td><td>4.32%</td><td class="warn">73%</td></tr>
+        <tr><td>30Y</td><td>4.67%</td><td class="warn">79%</td></tr>
+        <tr><td>2s10s</td><td>+11bp</td><td>61%</td></tr>
+        <tr><td>5s30s</td><td>+59bp</td><td class="warn">82%</td></tr>
+        <tr><td>2s30s</td><td>+46bp</td><td class="warn">77%</td></tr>
+        <tr><td>10s30s</td><td>+35bp</td><td>71%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Curve spreads</h3><small>2s10s / 5s30s / 2s30s</small></div>
+    <canvas id="curveSpreads"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Curve factor decomposition</h3><small>level / slope / curvature</small></div>
+    <canvas id="factors"></canvas>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>Nominal vs Real Yields</h3><small>10Y decomposition</small></div>
+    <canvas id="realNominal"></canvas>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Inflation pricing</h3><small>breakevens</small></div>
+    <table>
+      <thead><tr><th>Metric</th><th>Now</th><th>1D</th><th>Percentile</th></tr></thead>
+      <tbody>
+        <tr><td>5Y Breakeven</td><td>2.34%</td><td>+2bp</td><td>63%</td></tr>
+        <tr><td>10Y Breakeven</td><td>2.41%</td><td>+3bp</td><td>67%</td></tr>
+        <tr><td>5Y5Y Inflation</td><td>2.48%</td><td>+1bp</td><td>72%</td></tr>
+        <tr><td>10Y Real Yield</td><td>1.91%</td><td class="bad">+11bp</td><td class="warn">74%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s3">
+    <div class="label">1D Curve Move</div>
+    <div class="kpi">+18bp</div>
+    <div class="mini">30Y largest move</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Slope Δ 2s10s</div>
+    <div class="kpi">+7bp</div>
+    <div class="mini warn">1.8σ daily move</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Slope Δ 5s30s</div>
+    <div class="kpi">+8bp</div>
+    <div class="mini warn">87e percentile</div>
+  </div>
+  <div class="card s3">
+    <div class="label">Rates Volatility</div>
+    <div class="kpi">MOVE 106</div>
+    <div class="mini warn">82e percentile</div>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Rates regime interpretation</h3><small>automatic narrative</small></div>
+    <div class="summaryBox">
+      <b>The dominant signal is a BEAR STEEPENER.</b>
+      Long-end yields are rising faster than front-end yields, while real yields account for most of the 10Y move.
+      This is more restrictive for long-duration assets than a pure inflation-breakeven move.
+      <div style="margin-top:12px">
+        <span class="tag extreme">DURATION BIAS: BEARISH</span>
+        <b style="margin-left:8px">74% confidence</b>
+      </div>
+      <div class="mini" style="margin-top:8px">
+        Main drivers: real yields ↑ · 5s30s steeper · MOVE elevated · term premium pressure.
+      </div>
+    </div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Regime classification</h3><small>rates taxonomy</small></div>
+    <table><tbody>
+      <tr><td>BULL STEEPENER</td><td>front-end ↓ faster</td></tr>
+      <tr><td>BULL FLATTENER</td><td>long-end ↓ faster</td></tr>
+      <tr><td>BEAR STEEPENER</td><td class="warn">long-end ↑ faster</td></tr>
+      <tr><td>BEAR FLATTENER</td><td>front-end ↑ faster</td></tr>
+      <tr><td>PARALLEL SHIFT</td><td>level move dominates</td></tr>
+      <tr><td>CURVATURE SHOCK</td><td>belly dislocates</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>2s10s · history</h3><small>bps</small></div>
+    <canvas id="twoten"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Rates regime map</h3><small>percentile profile</small></div>
+    <canvas id="ratesRadar"></canvas>
+  </div>
+
+  <div class="card s12">
+    <div class="note">
+      The rates dashboard separates nominal yields into real-yield and inflation-expectation components, and classifies the curve using level, slope and curvature. This helps distinguish a growth shock, inflation shock, policy shock, or term-premium repricing.
+    </div>
+  </div>
+
+</div>
+</section>
+
+
+
+<section id="fx" class="view">
+<div class="grid">
+
+  <div class="card s3"><div class="label">Dollar Regime</div><div class="kpi warn">STRONG</div><div class="mini">DXY proxy + real yields aligned</div></div>
+  <div class="card s3"><div class="label">Risk FX Score</div><div class="kpi bad">68/100</div><div class="mini">risk-off FX pressure</div></div>
+  <div class="card s3"><div class="label">AUDJPY</div><div class="kpi bad">WEAK</div><div class="mini">growth/risk appetite signal</div></div>
+  <div class="card s3"><div class="label">USDCNH</div><div class="kpi warn">FIRM</div><div class="mini">China/global growth caution</div></div>
+
+  <div class="card s8">
+    <div class="section"><h3>FX Correlation Matrix</h3><small>20-day returns</small></div>
+    <div class="fxGrid" id="fxHeat"></div>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>FX regime statistics</h3><small>current snapshot</small></div>
+    <table>
+      <thead><tr><th>Pair</th><th>20D</th><th>Z-score</th><th>Signal</th></tr></thead>
+      <tbody>
+        <tr><td>EURUSD</td><td>-1.8%</td><td>-1.2σ</td><td class="warn">USD+</td></tr>
+        <tr><td>USDJPY</td><td>+2.4%</td><td>+1.5σ</td><td class="warn">Rates+</td></tr>
+        <tr><td>USDCHF</td><td>+1.1%</td><td>+0.8σ</td><td>Firm USD</td></tr>
+        <tr><td>AUDUSD</td><td>-2.2%</td><td>-1.7σ</td><td class="bad">Risk-off</td></tr>
+        <tr><td>AUDJPY</td><td>-1.5%</td><td>-1.6σ</td><td class="bad">Risk appetite ↓</td></tr>
+        <tr><td>USDCNH</td><td>+1.3%</td><td>+1.4σ</td><td class="warn">China caution</td></tr>
+        <tr><td>USDCAD</td><td>+0.4%</td><td>+0.3σ</td><td>Neutral</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>FX vs Cross-Asset Correlations</h3><small>rolling 60D</small></div>
+    <canvas id="fxCrossAsset"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Risk FX Composite</h3><small>AUDJPY / USDCNH / USD / CHF</small></div>
+    <canvas id="fxRiskComposite"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="label">USD vs S&P 500</div><div class="kpi">-0.46</div><div class="mini">82e percentile in absolute correlation</div>
+  </div>
+  <div class="card s4">
+    <div class="label">AUDJPY vs S&P 500</div><div class="kpi good">+0.63</div><div class="mini">risk-on proxy still informative</div>
+  </div>
+  <div class="card s4">
+    <div class="label">USDCNH vs Copper</div><div class="kpi bad">-0.58</div><div class="mini">global growth signal</div>
+  </div>
+
+  <div class="card s7">
+    <div class="section"><h3>FX regime interpretation</h3><small>automatic narrative</small></div>
+    <div class="summaryBox">
+      <b>FX is currently confirming a mild risk-off regime.</b>
+      A firmer USD, weaker AUDJPY and stronger USDCNH point to tighter global financial conditions and softer risk appetite.
+      This reinforces the current preference for Value / defensives over long-duration growth.
+      <div style="margin-top:12px"><span class="tag unusual">FX BIAS: RISK-OFF</span> <b style="margin-left:8px">68% confidence</b></div>
+    </div>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Playbook impact</h3><small>FX contribution</small></div>
+    <table><tbody>
+      <tr><td>Strong USD</td><td>− Global cyclicals / EM-sensitive</td></tr>
+      <tr><td>Weak AUDJPY</td><td>− High beta / discretionary</td></tr>
+      <tr><td>Strong USDCNH</td><td>− Materials / China-sensitive</td></tr>
+      <tr><td>Strong CHF</td><td>+ Defensives signal</td></tr>
+      <tr><td>Weak USD</td><td>+ Commodities / cyclicals / growth</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card s12">
+    <div class="note">
+      FX signals are used as confirmation layers, not standalone forecasts. The engine focuses on persistent moves and correlation breaks versus equities, real yields, volatility and commodities.
+    </div>
+  </div>
+
+</div>
+</section>
+
+<section id="vol" class="view">
+<div class="grid">
+
+  <div class="card s3"><div class="label">Volatility Regime</div><div class="kpi warn">RICH</div><div class="mini">Implied > realized · premium élevé</div></div>
+  <div class="card s3"><div class="label">VIX / 20D Realized</div><div class="kpi">1.41×</div><div class="mini warn">84e percentile 10 ans</div></div>
+  <div class="card s3"><div class="label">Vol Risk Premium</div><div class="kpi">+5.8 vol pts</div><div class="mini warn">IV 19.8% − RV20 14.0%</div></div>
+  <div class="card s3"><div class="label">VRP Z-score</div><div class="kpi">+1.36σ</div><div class="mini">78e percentile historique</div></div>
+
+  <div class="card s8">
+    <div class="section"><h3>Implied vs Realized Volatility</h3><small>annualized volatility · demo</small></div>
+    <canvas id="ivrvChart"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Vol regime statistics</h3><small>current snapshot</small></div>
+    <table>
+      <thead><tr><th>Metric</th><th>Now</th><th>Percentile</th></tr></thead>
+      <tbody>
+        <tr><td>VIX implied 30D</td><td>19.8%</td><td>68%</td></tr>
+        <tr><td>Realized 5D</td><td>17.1%</td><td>63%</td></tr>
+        <tr><td>Realized 10D</td><td>15.8%</td><td>57%</td></tr>
+        <tr><td>Realized 20D</td><td>14.0%</td><td>49%</td></tr>
+        <tr><td>Realized 60D</td><td>13.2%</td><td>42%</td></tr>
+        <tr><td>IV − RV20</td><td class="warn">+5.8 pts</td><td class="warn">78%</td></tr>
+        <tr><td>IV / RV20</td><td class="warn">1.41×</td><td class="warn">84%</td></tr>
+        <tr><td>RV5 / RV20</td><td>1.22×</td><td>71%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Volatility Risk Premium</h3><small>VIX − realized 20D · 12 mois</small></div>
+    <canvas id="vrpChart"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Vol regime map</h3><small>niveau, pente et convexité</small></div>
+    <canvas id="volRegimeRadar"></canvas>
+  </div>
+
+  <div class="card s8">
+    <div class="section"><h3>Implied Volatility Term Structure</h3><small>VIX9D → VIX1Y</small></div>
+    <canvas id="volcurve"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Term structure diagnostics</h3><small>curve shape</small></div>
+    <table><tbody>
+      <tr><td>VIX9D</td><td>18.0</td><td>61%</td></tr>
+      <tr><td>VIX 30D</td><td>19.8</td><td>68%</td></tr>
+      <tr><td>VIX3M</td><td>21.0</td><td>72%</td></tr>
+      <tr><td>VIX6M</td><td>22.1</td><td>76%</td></tr>
+      <tr><td>VIX1Y</td><td>23.0</td><td>79%</td></tr>
+      <tr><td>3M − 1M</td><td>+1.2</td><td class="good">Contango</td></tr>
+      <tr><td>1Y − 1M</td><td>+3.2</td><td>Normal</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card s3"><div class="label">VVIX</div><div class="kpi">90.6</div><div class="mini">vol-of-vol · near long-run avg</div></div>
+  <div class="card s3"><div class="label">SKEW</div><div class="kpi">142</div><div class="mini warn">tail-risk pricing elevated</div></div>
+  <div class="card s3"><div class="label">MOVE / VIX</div><div class="kpi">5.4×</div><div class="mini bad">rates vol relatively rich</div></div>
+  <div class="card s3"><div class="label">Vol-of-Vol Regime</div><div class="kpi">NORMAL</div><div class="mini">VVIX percentile 52%</div></div>
+
+  <div class="card s7">
+    <div class="section"><h3>Volatility regime interpretation</h3><small>automatic narrative</small></div>
+    <div class="summaryBox">
+      <b>Implied volatility is expensive relative to recent realized volatility.</b>
+      The VIX trades about <b>41% above 20-day realized volatility</b>, while the term structure remains in contango.
+      This points to a <b>RICH BUT NOT PANICKED</b> volatility regime: investors are paying a meaningful insurance premium, but the curve is not displaying acute front-end stress.
+      <div style="margin-top:12px"><span class="tag unusual">VOL BIAS: SELLER-FRIENDLY</span> <b style="margin-left:8px">68% confidence</b></div>
+    </div>
+  </div>
+
+  <div class="card s5">
+    <div class="section"><h3>Regime classification</h3><small>rule-based</small></div>
+    <table><tbody>
+      <tr><td>LOW / CHEAP</td><td>IV low + IV/RV low</td></tr>
+      <tr><td>NORMAL</td><td>IV and RV near history</td></tr>
+      <tr><td>RICH</td><td class="warn">IV ≫ RV</td></tr>
+      <tr><td>STRESS</td><td>front vol rising + curve flattening</td></tr>
+      <tr><td>PANIC</td><td class="bad">backwardation + vol-of-vol spike</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card s12">
+    <div class="note">
+      VIX measures 30-day forward implied volatility from SPX options, whereas realized volatility is calculated from historical S&P 500 returns. The spread and ratio between them help identify whether option-implied volatility is cheap or expensive relative to recent realized movement.
+    </div>
+  </div>
+
+</div>
+</section>
+
+<section id="history" class="view">
+<div class="grid">
+  <div class="card s4"><div class="label">Historical Similarity</div><div class="kpi">93.2%</div><div class="mini">12 journées analogues depuis 2005</div></div>
+  <div class="card s4"><div class="label">Nearest Regime</div><div class="kpi" style="font-size:23px">RATES SHOCK</div><div class="mini warn">Taux longs ↑ · vol ↑ · diversification ↓</div></div>
+  <div class="card s4"><div class="label">Confidence</div><div class="kpi">High</div><div class="mini">6 facteurs sur 7 concordants</div></div>
+  <div class="card s8"><div class="section"><h3>Similarity Through Time</h3><small>distance au pattern actuel</small></div><canvas id="similar"></canvas></div>
+  <div class="card s4"><div class="section"><h3>What matched?</h3><small>facteurs</small></div><div id="matches"></div></div>
+  <div class="card s12"><div class="note">Les analogues historiques servent à contextualiser le régime actuel. Ils ne doivent pas être utilisés comme prédiction automatique de performance future.</div></div>
+</div>
+</section>
+</main>
+<script>
+
+let liveCurveChart=null;
+function fmt(v,d=2){return (v===null||v===undefined||Number.isNaN(Number(v)))?"—":Number(v).toFixed(d)}
+function pctfmt(v){return (v===null||v===undefined)?"—":`${Number(v).toFixed(0)}%`}
+function liveHeatColor(v){return v>=0?`rgba(240,102,115,${.12+.58*Math.abs(v)})`:`rgba(78,165,255,${.12+.55*Math.abs(v)})`}
+function buildLiveHeat(labels,matrix){
+ const el=document.getElementById("liveHeat"); if(!el)return;
+ el.style.gridTemplateColumns=`105px repeat(${labels.length},1fr)`;
+ el.innerHTML='<div></div>'+labels.map(a=>`<div class="head">${a}</div>`).join('');
+ labels.forEach((a,i)=>el.innerHTML+=`<div class="name">${a}</div>`+matrix[i].map(v=>`<div style="background:${liveHeatColor(v)}">${fmt(v,2)}</div>`).join(''));
+}
+
+function clamp(x,a,b){return Math.max(a,Math.min(b,x))}
+function computeRiskBias(input={}){
+  // Scores are directional: positive = bullish, negative = bearish.
+  // Weights intentionally favor cross-asset stress over a single price move.
+  const eqMomentum = Number.isFinite(input.eqMomentum) ? input.eqMomentum : -0.55;
+  const rateShock = Number.isFinite(input.rateShock) ? input.rateShock : 0.70;
+  const corrStress = Number.isFinite(input.corrStress) ? input.corrStress : 0.80;
+  const volStress = Number.isFinite(input.volStress) ? input.volStress : 0.65;
+  const creditStress = Number.isFinite(input.creditStress) ? input.creditStress : 0.45;
+  const usdStress = Number.isFinite(input.usdStress) ? input.usdStress : 0.20;
+
+  const score =
+      0.28 * eqMomentum
+    - 0.20 * rateShock
+    - 0.22 * corrStress
+    - 0.16 * volStress
+    - 0.10 * creditStress
+    - 0.04 * usdStress;
+
+  const scaled = clamp(score, -1, 1);
+  let bias = "NEUTRAL";
+  if (scaled <= -0.18) bias = "BEARISH";
+  else if (scaled >= 0.18) bias = "BULLISH";
+
+  const conviction = Math.round(50 + Math.abs(scaled) * 50);
+  
+return {bias, conviction, score:scaled, factors:{eqMomentum,rateShock,corrStress,volStress,creditStress,usdStress}};
+}
+function computeRiskBiasHorizons(base){
+  const day=computeRiskBias(base);
+
+  const week=computeRiskBias({
+    eqMomentum: clamp((base.eqMomentum||0)*0.75 + 0.10,-1,1),
+    rateShock: clamp((base.rateShock||0)*0.85,-1,1),
+    corrStress: clamp((base.corrStress||0)*0.75,-1,1),
+    volStress: clamp((base.volStress||0)*0.70,-1,1),
+    creditStress: clamp((base.creditStress||0)*0.90,-1,1),
+    usdStress: clamp((base.usdStress||0)*0.60,-1,1)
+  });
+
+  const month=computeRiskBias({
+    eqMomentum: clamp((base.eqMomentum||0)*0.45 + 0.20,-1,1),
+    rateShock: clamp((base.rateShock||0)*0.55,-1,1),
+    corrStress: clamp((base.corrStress||0)*0.45,-1,1),
+    volStress: clamp((base.volStress||0)*0.35,-1,1),
+    creditStress: clamp((base.creditStress||0)*0.70,-1,1),
+    usdStress: clamp((base.usdStress||0)*0.35,-1,1)
+  });
+
+  return {day,week,month};
+}
+
+
+function setBiasChip(tagId,convId,model){
+  const tag=document.getElementById(tagId), conv=document.getElementById(convId);
+  if(!tag||!conv)return;
+  tag.textContent=model.bias;
+  tag.className="tag "+(model.bias==="BEARISH"?"extreme":model.bias==="BULLISH"?"normal":"watch");
+  conv.textContent=`${model.conviction}%`;
+}
+
+function biasNum(b){return b==="BULLISH"?1:b==="BEARISH"?-1:0}
+function divergenceState(models){
+  const d=biasNum(models.day.bias), w=biasNum(models.week.bias), m=biasNum(models.month.bias);
+  const spread=Math.max(d,w,m)-Math.min(d,w,m);
+  let level="LOW", message="Régime aligné — aucune divergence importante détectée.";
+  if(spread===2){
+    level="HIGH";
+    message=`DIVERGENCE FORTE : ${models.day.bias} 1D / ${models.week.bias} 1W / ${models.month.bias} 1M. Le choc court terme contredit le régime de fond.`;
+  } else if(spread===1){
+    level="MID";
+    message=`DIVERGENCE MODÉRÉE : ${models.day.bias} 1D / ${models.week.bias} 1W / ${models.month.bias} 1M. Transition de régime possible.`;
+  }
+  return {level,message};
+}
+
+function renderRiskBias(models){
+  setBiasChip("riskBiasTag1D","riskBiasConviction1D",models.day);
+  setBiasChip("riskBiasTag1W","riskBiasConviction1W",models.week);
+  setBiasChip("riskBiasTag1M","riskBiasConviction1M",models.month);
+
+  const conf=document.getElementById("riskBiasConfidence");
+  const factors=document.getElementById("riskBiasFactors");
+  if(!conf||!factors)return;
+
+  const agree = [models.day.bias,models.week.bias,models.month.bias];
+  const same = new Set(agree).size===1;
+  conf.textContent = same
+    ? `Signal aligné sur les 3 horizons · ${agree[0]}`
+    : `Signal divergent : ${agree[0]} 1D / ${agree[1]} 1W / ${agree[2]} 1M`;
+
+  const f=models.day.factors;
+  const ordered=[
+    ["Momentum actions",f.eqMomentum],
+    ["Choc taux",-f.rateShock],
+    ["Corrélations",-f.corrStress],
+    ["Volatilité",-f.volStress],
+    ["Crédit",-f.creditStress],
+    ["USD",-f.usdStress]
+  ].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,4);
+  factors.textContent="Facteurs dominants court terme : "+ordered.map(x=>`${x[0]} ${x[1]>=0?"bull":"bear"}`).join(" · ");
+  const div=divergenceState(models);
+  const box=document.getElementById("regimeDivergence");
+  if(box){
+    box.className="divAlert "+(div.level==="HIGH"?"high":div.level==="MID"?"mid":"low");
+    box.textContent=div.message;
+  }
+}
+
+
+function riskInputsFromLive(d){
+  const bySym=Object.fromEntries((d.assets||[]).map(x=>[x.symbol,x]));
+  const spy=bySym.SPY, qqq=bySym.QQQ, uup=bySym.UUP;
+  const eqMomentum=clamp((((spy?.change1d||0)+(qqq?.change1d||0))/2)/1.5,-1,1);
+  const usdStress=clamp((uup?.change1d||0)/0.8,-1,1);
+
+  // Correlation stress: higher positive equity/bond-style regime gets penalized.
+  // Current API matrix does not yet include rates, so use broad equity internal correlation as proxy.
+  let corrStress=.45;
+  if(d.correlation?.matrix?.length){
+    const m=d.correlation.matrix;
+    const vals=[];
+    for(let i=0;i<Math.min(5,m.length);i++){
+      for(let j=i+1;j<Math.min(5,m.length);j++){
+        if(Number.isFinite(m[i][j])) vals.push(m[i][j]);
+      }
+    }
+    if(vals.length) corrStress=clamp((vals.reduce((a,b)=>a+b,0)/vals.length-.35)/.45,-1,1);
+  }
+
+  let rateShock=.45;
+  if(d.rates?.curve?.length){
+    const r=Object.fromEntries(d.rates.curve.map(x=>[x.tenor,x.value]));
+    if(Number.isFinite(r["10Y"])&&Number.isFinite(r["2Y"])){
+      const slope=r["10Y"]-r["2Y"];
+      rateShock=clamp((slope+.15)/.60,-1,1);
+    }
+  }
+  return {eqMomentum,rateShock,corrStress,volStress:.55,creditStress:.40,usdStress};
+}
+
+async function loadLive(){
+ const status=document.getElementById("liveStatus");
+ try{
+   const r=await fetch('/api/market');
+   if(!r.ok) throw new Error(`HTTP ${r.status}`);
+   const d=await r.json();
+   window.__live=d;
+   renderRiskBias(computeRiskBiasHorizons(riskInputsFromLive(d)));
+   document.getElementById("dataMode").textContent=d.mode;
+   document.getElementById("dataMode").className=`kpi ${d.mode==="LIVE"?"good":"warn"}`;
+   document.getElementById("dataTime").textContent=`updated ${d.generatedAt}`;
+   status.textContent=`V4 · ${d.mode} · ${d.generatedAt}`;
+   status.className=`pill ${d.mode==="LIVE"?"liveok":"livedemo"}`;
+   document.getElementById("eqCount").textContent=d.meta?.equitySeries ?? 0;
+   document.getElementById("rateCount").textContent=d.meta?.rateSeries ?? 0;
+   document.getElementById("pairCount").textContent=d.meta?.correlationPairs ?? 0;
+   const rows=d.assets||[];
+   document.getElementById("liveTable").innerHTML=rows.map(x=>`<tr>
+    <td><b>${x.label}</b><div class="smallmuted">${x.symbol}</div></td>
+    <td>${fmt(x.latest,2)}</td><td class="${x.change1d<0?'bad':'good'}">${x.change1d===null?'—':fmt(x.change1d,2)+'%'}</td>
+    <td>${x.change20d===null?'—':fmt(x.change20d,2)+'%'}</td>
+    <td class="${Math.abs(x.z1d||0)>=2?'bad':Math.abs(x.z1d||0)>=1.5?'warn':''}">${x.z1d===null?'—':fmt(x.z1d,2)+'σ'}</td>
+    <td>${pctfmt(x.percentile)}</td><td>${x.source}</td></tr>`).join('');
+   if(d.correlation?.labels?.length) buildLiveHeat(d.correlation.labels,d.correlation.matrix);
+   if(d.rates?.curve){
+     const c=d.rates.curve;
+     if(liveCurveChart) liveCurveChart.destroy();
+     liveCurveChart=new Chart(document.getElementById('liveCurve'),{type:'line',data:{labels:c.map(x=>x.tenor),datasets:[{label:'Latest',data:c.map(x=>x.value),borderColor:'#f2bc55',tension:.25}]},options:{scales:{y:{title:{display:true,text:'Yield %'}}}}});
+   }
+ }catch(e){
+   status.textContent='V4 · API unavailable · DEMO UI';
+   status.className='pill livedemo';
+   document.getElementById("dataMode").textContent="OFFLINE";
+   document.getElementById("dataMode").className="kpi bad";
+   document.getElementById("dataTime").textContent=e.message;
+ }
+}
+document.getElementById("refreshLive")?.addEventListener("click",loadLive);
+window.addEventListener("load",()=>{renderRiskBias(computeRiskBiasHorizons({eqMomentum:-0.55,rateShock:0.70,corrStress:0.80,volStress:0.65,creditStress:0.45,usdStress:0.20}));loadLive();});
+
+const assets=["S&P","Nasdaq","Banks","Energy","UST10Y","Gold","Oil","USD"];
+const corr=[[1,.86,.61,.35,.42,-.12,.31,-.38],[.86,1,.47,.18,.31,-.08,.22,-.44],[.61,.47,1,.39,.28,-.04,.26,-.14],[.35,.18,.39,1,.17,.11,.66,.09],[.42,.31,.28,.17,1,.22,.19,.33],[-.12,-.08,-.04,.11,.22,1,.24,-.51],[.31,.22,.26,.66,.19,.24,1,.15],[-.38,-.44,-.14,.09,.33,-.51,.15,1]];
+function hc(v){return v>=0?`rgba(240,102,115,${.12+.58*Math.abs(v)})`:`rgba(78,165,255,${.12+.55*Math.abs(v)})`}
+function heat(id){let e=document.getElementById(id);e.innerHTML='<div></div>'+assets.map(a=>`<div class="head">${a}</div>`).join('');assets.forEach((a,i)=>e.innerHTML+=`<div class="name">${a}</div>`+corr[i].map(v=>`<div style="background:${hc(v)}">${v.toFixed(2)}</div>`).join(''))}
+heat('heat');heat('heat2');
+
+
+const changesToday=[
+{name:"US 10Y / 2Y curve steepening",from:"+4bp",to:"+11bp",delta:"+7bp",score:2.35,dir:"↑",state:"DETERIORATING",note:"Bear steepening accélère"},
+{name:"Equity/Bond correlation",from:"+0.29",to:"+0.42",delta:"+0.13",score:2.10,dir:"↑",state:"DETERIORATING",note:"Diversification se détériore"},
+{name:"MOVE / VIX ratio",from:"4.8×",to:"5.4×",delta:"+0.6×",score:1.82,dir:"↑",state:"DETERIORATING",note:"Stress taux > stress actions"},
+{name:"HY OAS",from:"318bp",to:"329bp",delta:"+11bp",score:1.34,dir:"↑",state:"DETERIORATING",note:"Crédit commence à s'écarter"},
+{name:"Copper / Gold",from:"0.00174",to:"0.00170",delta:"-2.3%",score:1.18,dir:"↓",state:"DETERIORATING",note:"Signal croissance moins favorable"},
+{name:"Gold / USD corr",from:"-0.44",to:"-0.51",delta:"-0.07",score:-0.92,dir:"↓",state:"IMPROVING",note:"Retour vers relation défensive"},
+{name:"VIX3M - VIX",from:"+0.8",to:"+1.2",delta:"+0.4",score:-0.71,dir:"↑",state:"IMPROVING",note:"Contango légèrement restauré"}
+];
+function changeColor(c){return c.state==="IMPROVING"?"var(--green)":Math.abs(c.score)>=2?"var(--red)":"var(--amber)"}
+function renderChanges(){
+  const sorted=[...changesToday].sort((a,b)=>Math.abs(b.score)-Math.abs(a.score));
+  document.getElementById("changesMini").innerHTML=sorted.slice(0,5).map((c,i)=>`
+    <div class="deltaRow">
+      <div class="rank">${i+1}</div>
+      <div><b>${c.name}</b><div class="smallmuted">${c.note}</div></div>
+      <div><span class="smallmuted">J-1</span><br>${c.from}</div>
+      <div><span class="smallmuted">Now</span><br>${c.to}</div>
+      <div class="deltaScore" style="color:${changeColor(c)}">${c.score>0?"+":""}${c.score.toFixed(2)}σ</div>
+    </div>`).join("");
+  document.getElementById("changesFull").innerHTML=sorted.map((c,i)=>`
+    <div class="deltaRow">
+      <div class="rank">${i+1}</div>
+      <div><b>${c.name}</b><div class="smallmuted">${c.note} · ${c.state}</div></div>
+      <div><span class="smallmuted">J-1</span><br>${c.from}</div>
+      <div><span class="smallmuted">Now</span><br>${c.to}</div>
+      <div class="deltaScore" style="color:${changeColor(c)}">${c.score>0?"+":""}${c.score.toFixed(2)}σ</div>
+    </div>`).join("");
+}
+renderChanges();
+
+
+const sectorModel = [
+  {sector:"Energy",score:82,view:"OVERWEIGHT",rates:10,inflation:18,vol:6,credit:3,momentum:8,reason:"Pricing power + inflation sensitivity + value profile"},
+  {sector:"Financials",score:78,view:"OVERWEIGHT",rates:18,inflation:6,vol:2,credit:1,momentum:6,reason:"Steeper curve supports margins; value factor helps"},
+  {sector:"Industrials",score:67,view:"NEUTRAL+",rates:4,inflation:8,vol:-2,credit:2,momentum:5,reason:"Cyclical exposure with pricing power"},
+  {sector:"Healthcare",score:64,view:"NEUTRAL+",rates:-2,inflation:1,vol:10,credit:3,momentum:2,reason:"Defensive quality offsets higher-rate drag"},
+  {sector:"Consumer Staples",score:59,view:"NEUTRAL",rates:-4,inflation:3,vol:9,credit:2,momentum:-1,reason:"Defensive but bond-proxy sensitivity"},
+  {sector:"Materials",score:58,view:"NEUTRAL",rates:1,inflation:10,vol:-3,credit:1,momentum:-2,reason:"Inflation hedge but growth sensitivity"},
+  {sector:"Communication",score:48,view:"NEUTRAL-",rates:-8,inflation:0,vol:-4,credit:1,momentum:3,reason:"Mixed duration and defensive characteristics"},
+  {sector:"Consumer Discretionary",score:43,view:"UNDERWEIGHT",rates:-10,inflation:-4,vol:-7,credit:-3,momentum:2,reason:"Rates and tighter financial conditions pressure demand"},
+  {sector:"Technology",score:39,view:"UNDERWEIGHT",rates:-18,inflation:-3,vol:-6,credit:0,momentum:7,reason:"Long-duration cash flows vulnerable to real yields"},
+  {sector:"Real Estate",score:34,view:"UNDERWEIGHT",rates:-20,inflation:2,vol:-5,credit:-5,momentum:-1,reason:"Higher real yields and financing costs"},
+  {sector:"Utilities",score:31,view:"UNDERWEIGHT",rates:-21,inflation:0,vol:4,credit:-2,momentum:-2,reason:"Bond-proxy sector hurt by rising long-end yields"}
+];
+
+function sectorViewClass(v){
+  if(v==="OVERWEIGHT") return "good";
+  if(v.startsWith("UNDERWEIGHT")) return "bad";
+  return "blue";
+}
+function renderSectorTable(){
+  const rows=[...sectorModel].sort((a,b)=>b.score-a.score);
+  const tb=document.getElementById("sectorTable");
+  if(tb) tb.innerHTML=rows.map((s,i)=>`<tr>
+    <td><span class="rank">${i+1}</span></td>
+    <td><b>${s.sector}</b></td>
+    <td class="sectorScore">${s.score}</td>
+    <td class="${sectorViewClass(s.view)}"><b>${s.view}</b></td>
+    <td>${s.rates>0?"+":""}${s.rates}</td>
+    <td>${s.inflation>0?"+":""}${s.inflation}</td>
+    <td>${s.vol>0?"+":""}${s.vol}</td>
+    <td>${s.credit>0?"+":""}${s.credit}</td>
+    <td>${s.momentum>0?"+":""}${s.momentum}</td>
+    <td>${s.reason}</td>
+  </tr>`).join("");
+  document.getElementById("bestSector").textContent=rows[0].sector;
+  document.getElementById("bestSectorScore").textContent=`Score ${rows[0].score}/100`;
+  document.getElementById("worstSector").textContent=rows.at(-1).sector;
+  document.getElementById("worstSectorScore").textContent=`Score ${rows.at(-1).score}/100`;
+}
+renderSectorTable();
+
+const anomalies=[
+{name:"Equity/Bond correlation",current:"+0.42",mean:"+0.08",delta:"+0.34",z:2.10,pct:94,regime:"EXTREME"},
+{name:"US 2s10s daily change",current:"+7bp",mean:"+1bp",delta:"+6bp",z:1.80,pct:86,regime:"UNUSUAL"},
+{name:"MOVE / VIX",current:"5.4×",mean:"4.1×",delta:"+1.3×",z:1.72,pct:89,regime:"UNUSUAL"},
+{name:"Tech / Rates correlation",current:"-0.58",mean:"-0.31",delta:"-0.27",z:-1.65,pct:9,regime:"UNUSUAL"},
+{name:"Copper / Gold ratio",current:"0.0017",mean:"0.0019",delta:"-10.5%",z:-1.58,pct:7,regime:"UNUSUAL"},
+{name:"HY OAS 20d change",current:"+24bp",mean:"+5bp",delta:"+19bp",z:1.21,pct:82,regime:"WATCH"},
+{name:"Brent / WTI spread",current:"$3.8",mean:"$2.6",delta:"+$1.2",z:1.48,pct:91,regime:"UNUSUAL"},
+{name:"Gold / USD correlation",current:"-0.51",mean:"-0.38",delta:"-0.13",z:-0.80,pct:23,regime:"NORMAL"}
+];
+function regClass(r){return r==="EXTREME"?"extreme":r==="UNUSUAL"?"unusual":r==="WATCH"?"watch":"normal"}
+function renderAnoms(sort="absz"){
+ let arr=[...anomalies].sort((a,b)=>sort==="pct"?b.pct-a.pct:Math.abs(b.z)-Math.abs(a.z));
+ document.getElementById('anomTable').innerHTML=arr.map((a,i)=>`<tr><td><span class="rank">${i+1}</span></td><td>${a.name}</td><td>${a.current}</td><td>${a.mean}</td><td>${a.delta}</td><td class="${Math.abs(a.z)>=1.7?'bad':Math.abs(a.z)>=1.2?'warn':''}">${a.z>0?'+':''}${a.z.toFixed(2)}σ</td><td>${a.pct}%</td><td><span class="tag ${regClass(a.regime)}">${a.regime}</span></td></tr>`).join('');
+}
+renderAnoms();document.getElementById('sort').onchange=e=>renderAnoms(e.target.value);
+
+document.getElementById('top5').innerHTML=anomalies.slice().sort((a,b)=>Math.abs(b.z)-Math.abs(a.z)).slice(0,5).map((a,i)=>`<div class="alert"><div class="stripe" style="background:${Math.abs(a.z)>1.9?'var(--red)':Math.abs(a.z)>1.5?'var(--amber)':'var(--blue)'}"></div><div><b>${i+1}. ${a.name}</b><p>${a.current} · percentile ${a.pct}%</p></div><div class="z">${a.z>0?'+':''}${a.z.toFixed(1)}σ</div></div>`).join('');
+
+const sm=[["Corrélations",94,"bad"],["Taux",86,"warn"],["Volatilité",89,"warn"],["Crédit",82,"warn"],["Commodities",73,"blue"],["FX",58,"good"]];
+document.getElementById('signalMap').innerHTML=sm.map(x=>`<div class="metric"><span>${x[0]}</span><div class="bar"><span style="width:${x[1]}%;background:var(--${x[2]=='bad'?'red':x[2]=='warn'?'amber':x[2]=='blue'?'blue':'green'})"></span></div><b>${x[1]}%</b></div>`).join('');
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(t.dataset.v).classList.add('active')});
+
+Chart.defaults.color="#8b99ab";Chart.defaults.borderColor="rgba(88,105,128,.18)";
+const months=["Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"];
+new Chart(document.getElementById('regime'),{type:'line',data:{labels:months,datasets:[{data:[31,28,43,38,48,54,42,39,51,63,58,72],borderColor:'#4bd9ff',backgroundColor:'rgba(75,217,255,.10)',fill:true,tension:.35,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}});
+new Chart(document.getElementById('contrib'),{type:'bar',data:{labels:["Correlation","Rates","Vol","Credit","Commo","FX"],datasets:[{data:[24,18,15,8,5,2],backgroundColor:["#f06673","#f2bc55","#9b83ff","#4ea5ff","#29d49a","#4bd9ff"]}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+new Chart(document.getElementById('zbar'),{type:'bar',data:{labels:anomalies.map(a=>a.name),datasets:[{data:anomalies.map(a=>a.z),backgroundColor:anomalies.map(a=>Math.abs(a.z)>1.9?'#f06673':Math.abs(a.z)>1.4?'#f2bc55':'#4ea5ff')}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:-2.5,max:2.5}}}});
+new Chart(document.getElementById('radar'),{type:'radar',data:{labels:["Growth","Inflation","Rates","Vol","Credit","Liquidity"],datasets:[{label:"Today",data:[42,68,86,79,67,55],borderColor:'#f2bc55',backgroundColor:'rgba(242,188,85,.12)'},{label:"Normal",data:[50,50,50,50,50,50],borderColor:'#4ea5ff',backgroundColor:'rgba(78,165,255,.05)'}]},options:{scales:{r:{min:0,max:100}},plugins:{legend:{position:'bottom'}}}});
+let xs=[...Array(48)].map((_,i)=>i), cs=xs.map(i=>-.28+.012*i+.16*Math.sin(i/4)+(i>38?.18:0));
+new Chart(document.getElementById('corr'),{type:'line',data:{labels:xs.map(i=>i%4===0?`${12-Math.floor((47-i)/4)}m`:""),datasets:[{data:cs,borderColor:'#9b83ff',pointRadius:0,tension:.28}]},options:{plugins:{legend:{display:false}},scales:{y:{min:-.8,max:.8}}}});
+new Chart(document.getElementById('corrBreak'),{type:'bar',data:{labels:["Eq/Bond","Tech/Rate","Oil/BE","USD/Gold","Banks/Curve"],datasets:[{data:[2.1,-1.65,1.3,-.8,1.1],backgroundColor:["#f06673","#f2bc55","#f2bc55","#4ea5ff","#4ea5ff"]}]},options:{plugins:{legend:{display:false}},scales:{y:{min:-3,max:3}}}});
+new Chart(document.getElementById('curve'),{type:'line',data:{labels:["3M","6M","1Y","2Y","5Y","10Y","30Y"],datasets:[
+      {label:"Today",data:[4.34,4.29,4.25,4.21,4.08,4.32,4.67],borderColor:'#f2bc55',tension:.28},
+      {label:"J-1",data:[4.32,4.27,4.20,4.14,3.98,4.18,4.49],borderColor:'#4bd9ff',tension:.28},
+      {label:"1M",data:[4.30,4.26,4.18,4.02,3.91,4.07,4.39],borderColor:'#9b83ff',tension:.28},
+      {label:"3M",data:[4.36,4.31,4.20,3.95,3.82,3.96,4.28],borderColor:'#29d49a',tension:.28}
+    ]},options:{scales:{y:{title:{display:true,text:"Yield %"}}}}});
+new Chart(document.getElementById('twoten'),{type:'line',data:{labels:months,datasets:[{data:[-52,-45,-41,-34,-23,-12,-7,2,6,4,7,11],borderColor:'#29d49a',backgroundColor:'rgba(41,212,154,.08)',fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"bps"}}}}});
+new Chart(document.getElementById('factors'),{type:'bar',data:{labels:["Level","Slope","Curvature"],datasets:[{data:[10.2,7.4,2.1],backgroundColor:["#f2bc55","#4ea5ff","#9b83ff"]}]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"bp equivalent"}}}}});
+new Chart(document.getElementById('volcurve'),{type:'line',data:{labels:["9D","30D","3M","6M","1Y"],datasets:[{label:"Today",data:[18.0,19.8,21.0,22.1,23.0],borderColor:'#f2bc55',tension:.25},{label:"1M",data:[14.8,16.1,18.4,20.0,21.2],borderColor:'#4ea5ff',tension:.25}]},options:{}});
+const sim=[22,25,28,27,31,35,33,41,45,49,52,55,61,58,64,70,73,79,77,84,88,93];
+new Chart(document.getElementById('similar'),{type:'line',data:{labels:sim.map((_,i)=>i),datasets:[{data:sim,borderColor:'#4bd9ff',backgroundColor:'rgba(75,217,255,.08)',fill:true,tension:.3,pointRadius:0}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}});
+
+new Chart(document.getElementById('deltaChart'),{
+ type:'bar',
+ data:{labels:changesToday.map(x=>x.name),datasets:[{data:changesToday.map(x=>x.score),backgroundColor:changesToday.map(x=>x.state==="IMPROVING"?'#29d49a':Math.abs(x.score)>=2?'#f06673':'#f2bc55')}]},
+ options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:-2.8,max:2.8,title:{display:true,text:"Delta Score (σ)"}}}}
+});
+new Chart(document.getElementById('accelChart'),{
+ type:'line',
+ data:{labels:["J-4","J-3","J-2","J-1","Today"],datasets:[
+   {label:"Equity/Bond corr",data:[0.4,0.7,1.1,1.5,2.1],borderColor:'#f06673',tension:.3},
+   {label:"2s10s move",data:[0.2,0.3,0.7,1.2,2.35],borderColor:'#f2bc55',tension:.3},
+   {label:"MOVE/VIX",data:[0.6,0.8,1.0,1.3,1.82],borderColor:'#9b83ff',tension:.3}
+ ]},
+ options:{scales:{y:{title:{display:true,text:"Normalized change"}}}}
+});
+
+
+const volMonths=["Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"];
+const ivSeries=[17.8,16.9,18.1,17.2,20.4,22.1,18.8,16.4,17.1,18.3,18.9,19.8];
+const rv20Series=[14.9,14.2,15.7,16.1,19.6,20.8,16.9,13.8,13.5,13.9,14.2,14.0];
+new Chart(document.getElementById('ivrvChart'),{
+ type:'line',
+ data:{labels:volMonths,datasets:[
+   {label:"Implied 30D",data:ivSeries,borderColor:'#f2bc55',tension:.3},
+   {label:"Realized 20D",data:rv20Series,borderColor:'#4bd9ff',tension:.3}
+ ]},
+ options:{scales:{y:{title:{display:true,text:"Annualized vol %"}}}}
+});
+new Chart(document.getElementById('vrpChart'),{
+ type:'bar',
+ data:{labels:volMonths,datasets:[{label:"IV - RV20",data:ivSeries.map((x,i)=>(x-rv20Series[i]).toFixed(1)),backgroundColor:ivSeries.map((x,i)=>x-rv20Series[i]>=5?'#f2bc55':'#4ea5ff')}]},
+ options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"Vol points"}}}}
+});
+new Chart(document.getElementById('volRegimeRadar'),{
+ type:'radar',
+ data:{labels:["IV Level","IV/RV","Front stress","Term slope","VVIX","Skew"],datasets:[
+   {label:"Today",data:[68,84,61,37,52,78],borderColor:'#f2bc55',backgroundColor:'rgba(242,188,85,.12)'},
+   {label:"Neutral",data:[50,50,50,50,50,50],borderColor:'#4ea5ff',backgroundColor:'rgba(78,165,255,.04)'}
+ ]},
+ options:{scales:{r:{min:0,max:100}},plugins:{legend:{position:'bottom'}}}
+});
+
+
+new Chart(document.getElementById('curveSpreads'),{
+  type:'line',
+  data:{labels:months,datasets:[
+    {label:"2s10s",data:[-52,-45,-41,-34,-23,-12,-7,2,6,4,7,11],borderColor:'#4bd9ff',tension:.3},
+    {label:"5s30s",data:[18,21,25,29,34,38,42,47,51,53,55,59],borderColor:'#f2bc55',tension:.3},
+    {label:"2s30s",data:[-18,-12,-6,4,10,18,24,31,37,40,43,46],borderColor:'#9b83ff',tension:.3}
+  ]},
+  options:{scales:{y:{title:{display:true,text:"bps"}}}}
+});
+
+new Chart(document.getElementById('realNominal'),{
+  type:'line',
+  data:{labels:months,datasets:[
+    {label:"10Y nominal",data:[4.02,3.98,4.05,4.10,4.22,4.31,4.18,4.09,4.12,4.18,4.21,4.32],borderColor:'#f2bc55',tension:.3},
+    {label:"10Y real yield",data:[1.67,1.64,1.69,1.71,1.79,1.86,1.74,1.66,1.69,1.75,1.80,1.91],borderColor:'#f06673',tension:.3},
+    {label:"10Y breakeven",data:[2.35,2.34,2.36,2.39,2.43,2.45,2.44,2.43,2.43,2.43,2.41,2.41],borderColor:'#4ea5ff',tension:.3}
+  ]},
+  options:{scales:{y:{title:{display:true,text:"Percent"}}}}
+});
+
+new Chart(document.getElementById('ratesRadar'),{
+  type:'radar',
+  data:{labels:["Level","2s10s","5s30s","Real yield","Breakeven","MOVE"],datasets:[
+    {label:"Today",data:[72,61,82,74,67,82],borderColor:'#f2bc55',backgroundColor:'rgba(242,188,85,.12)'},
+    {label:"Neutral",data:[50,50,50,50,50,50],borderColor:'#4ea5ff',backgroundColor:'rgba(78,165,255,.04)'}
+  ]},
+  options:{scales:{r:{min:0,max:100}},plugins:{legend:{position:'bottom'}}}
+});
+
+
+new Chart(document.getElementById('sectorRanking'),{
+  type:'bar',
+  data:{
+    labels:[...sectorModel].sort((a,b)=>b.score-a.score).map(x=>x.sector),
+    datasets:[{
+      data:[...sectorModel].sort((a,b)=>b.score-a.score).map(x=>x.score),
+      backgroundColor:[...sectorModel].sort((a,b)=>b.score-a.score).map(x=>x.score>=70?'#29d49a':x.score>=50?'#4ea5ff':'#f06673')
+    }]
+  },
+  options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:100,title:{display:true,text:"Sector score"}}}}
+});
+new Chart(document.getElementById('sectorFactors'),{
+  type:'bar',
+  data:{
+    labels:["Rates","Inflation","Volatility","Credit","Momentum"],
+    datasets:[
+      {label:"Energy",data:[10,18,6,3,8],backgroundColor:'#f2bc55'},
+      {label:"Financials",data:[18,6,2,1,6],backgroundColor:'#4bd9ff'},
+      {label:"Technology",data:[-18,-3,-6,0,7],backgroundColor:'#9b83ff'}
+    ]
+  },
+  options:{scales:{y:{title:{display:true,text:"Score contribution"}}}}
+});
+new Chart(document.getElementById('styleRotation'),{
+  type:'bar',
+  data:{
+    labels:["Value","Quality","Low Vol","Growth","High Beta","Bond Proxies"],
+    datasets:[{data:[78,66,61,42,38,29],backgroundColor:["#29d49a","#4bd9ff","#4ea5ff","#f2bc55","#f06673","#f06673"]}]
+  },
+  options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}
+});
+
+
+
+let btEquityChart=null, btLSChart=null, btAnnualChart=null, lsContributionChart=null;
+
+function btPct(x){return x==null?"—":`${(100*x).toFixed(1)}%`}
+function btNum(x,d=2){return x==null?"—":Number(x).toFixed(d)}
+
+
+
+
+function renderBacktestData(d, isFallback=false){
+  document.getElementById("btCagr").textContent=btPct(d.stats.strategy.cagr);
+  document.getElementById("btCagr").className="btKpi "+(d.stats.strategy.cagr>=d.stats.benchmark.cagr?"btPositive":"btNegative");
+  document.getElementById("btBenchCagr").textContent=`vs benchmark ${btPct(d.stats.benchmark.cagr)}`;
+  document.getElementById("btSharpe").textContent=btNum(d.stats.strategy.sharpe);
+  document.getElementById("btBenchSharpe").textContent=`benchmark ${btNum(d.stats.benchmark.sharpe)}`;
+  document.getElementById("btMdd").textContent=btPct(d.stats.strategy.maxDrawdown);
+  document.getElementById("btBenchMdd").textContent=`benchmark ${btPct(d.stats.benchmark.maxDrawdown)}`;
+  document.getElementById("btHit").textContent=btPct(d.stats.strategy.hitRate);
+
+  const status=document.getElementById("btStatus");
+  status.textContent=isFallback ? `INTERACTIVE LOCAL BACKTEST` : `REAL BACKTEST · ${d.meta.start} → ${d.meta.end}`;
+
+  document.getElementById("btStatsBody").innerHTML=`
+    <tr><td>CAGR</td><td>${btPct(d.stats.strategy.cagr)}</td><td>${btPct(d.stats.benchmark.cagr)}</td></tr>
+    <tr><td>Annual Vol</td><td>${btPct(d.stats.strategy.annVol)}</td><td>${btPct(d.stats.benchmark.annVol)}</td></tr>
+    <tr><td>Sharpe</td><td>${btNum(d.stats.strategy.sharpe)}</td><td>${btNum(d.stats.benchmark.sharpe)}</td></tr>
+    <tr><td>Max Drawdown</td><td>${btPct(d.stats.strategy.maxDrawdown)}</td><td>${btPct(d.stats.benchmark.maxDrawdown)}</td></tr>
+    <tr><td>Hit Rate</td><td>${btPct(d.stats.strategy.hitRate)}</td><td>—</td></tr>
+    <tr><td>Turnover</td><td>${btPct(d.stats.strategy.turnover)}</td><td>—</td></tr>
+    <tr><td>Avg sectors held</td><td>${btNum(d.stats.strategy.avgHoldings,1)}</td><td>—</td></tr>`;
+
+
+  if(d.diagnostics){
+    const pct=x=>`${(100*x).toFixed(1)}%`;
+    const rs=document.getElementById("rankStability");
+    const ah=document.getElementById("avgExtremeHolding");
+    const sp=document.getElementById("avgExtremeSpread");
+    if(rs) rs.textContent=d.diagnostics.rankPersistence!=null?pct(d.diagnostics.rankPersistence):"—";
+    if(ah) ah.textContent=d.diagnostics.avgHoldingMonths!=null?`${d.diagnostics.avgHoldingMonths.toFixed(1)} mo`:"—";
+    if(sp) sp.textContent=d.diagnostics.avgMonthlySpread!=null?pct(d.diagnostics.avgMonthlySpread):"—";
+
+    const sq=document.getElementById("signalQualityBody");
+    if(sq) sq.innerHTML=`
+      <tr><td>Top 1 beats Bottom 1</td><td class="good">${d.diagnostics.topBeatsBottom!=null?pct(d.diagnostics.topBeatsBottom):"—"}</td></tr>
+      <tr><td>Positive spread after costs</td><td class="good">${d.diagnostics.positiveSpreadAfterCosts!=null?pct(d.diagnostics.positiveSpreadAfterCosts):"—"}</td></tr>
+      <tr><td>Avg Top 1 monthly return</td><td>${d.diagnostics.avgLongReturn!=null?pct(d.diagnostics.avgLongReturn):"—"}</td></tr>
+      <tr><td>Avg Bottom 1 monthly return</td><td>${d.diagnostics.avgShortReturn!=null?pct(d.diagnostics.avgShortReturn):"—"}</td></tr>`;
+
+    if(lsContributionChart) lsContributionChart.destroy();
+    lsContributionChart=new Chart(document.getElementById("lsContribution"),{
+      type:"bar",
+      data:{labels:["Top 1 long","Bottom 1 short"],datasets:[{
+        data:[
+          d.diagnostics.avgLongReturn!=null?100*d.diagnostics.avgLongReturn:0,
+          d.diagnostics.avgShortReturn!=null?-100*d.diagnostics.avgShortReturn:0
+        ],
+        backgroundColor:["#29d49a","#4ea5ff"]
+      }]},
+      options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"Avg monthly contribution %"}}}}
+    });
+  }
+
+  if(btEquityChart) btEquityChart.destroy();
+  btEquityChart=new Chart(document.getElementById("btEquityCurve"),{
+    type:"line",data:{labels:d.equityCurve.map(x=>x.date),datasets:[
+      {label:"Top 3 sectors",data:d.equityCurve.map(x=>x.strategy),borderColor:"#29d49a",pointRadius:0,tension:.15},
+      {label:"S&P 500",data:d.equityCurve.map(x=>x.benchmark),borderColor:"#4ea5ff",pointRadius:0,tension:.15}
+    ]},options:{scales:{y:{title:{display:true,text:"Growth of $100"}}}}
+  });
+
+  if(btLSChart) btLSChart.destroy();
+  btLSChart=new Chart(document.getElementById("btLongShort"),{
+    type:"line",data:{labels:d.longShortCurve.map(x=>x.date),datasets:[
+      {label:"Top 3 minus Bottom 3 · rank weighted",data:d.longShortCurve.map(x=>x.value),borderColor:"#f2bc55",pointRadius:0,tension:.15}
+    ]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"Growth of $100"}}}}
+  });
+
+  if(btAnnualChart) btAnnualChart.destroy();
+  btAnnualChart=new Chart(document.getElementById("btAnnual"),{
+    type:"bar",data:{labels:d.annual.map(x=>x.year),datasets:[
+      {label:"Excess return",data:d.annual.map(x=>100*x.excess),backgroundColor:d.annual.map(x=>x.excess>=0?"#29d49a":"#f06673")}
+    ]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"Percentage points"}}}}
+  });
+}
+
+
+
+async function loadBacktest(){
+  const status=document.getElementById("btStatus"),btn=document.getElementById("runBacktest");
+  const p={
+    start:document.getElementById("btStart")?.value||"2018-06-19",
+    rebalance:document.getElementById("btRebalance")?.value||"monthly",
+    topN:document.getElementById("btTopN")?.value||"3",
+    costBps:document.getElementById("btCosts")?.value||"10",
+    mode:document.getElementById("btMode")?.value||"extreme1",
+    shortBorrowBps:document.getElementById("btBorrow")?.value||"50"
+  };
+  if(btn){btn.disabled=true;btn.textContent="Running…";}
+  status.textContent=`LOADING REAL DATA · ${p.rebalance} · ${p.costBps} bps costs · ${p.shortBorrowBps} bps borrow`;
+
+  try{
+    const q=new URLSearchParams({...p,t:String(Date.now())});
+    const r=await fetch(`/api/backtest?${q}`,{cache:"no-store"});
+    const d=await r.json();
+    if(!r.ok || !d.ok) throw new Error(d.error||`HTTP ${r.status}`);
+
+    renderBacktestData(d,false);
+
+    const t1=document.getElementById("btTop1"),b1=document.getElementById("btBottom1");
+    if(t1)t1.textContent=d.latest?.longs?.[0]||"—";
+    if(b1)b1.textContent=d.latest?.shorts?.[0]||"—";
+
+    status.textContent=`REAL DATA · ${d.meta.start} → ${d.meta.end} · ${d.meta.months} periods · ${d.meta.costBps} bps costs · ${d.meta.shortBorrowBps} bps short borrow`;
+
+    const src=document.getElementById("btSource");
+    if(src) src.textContent=`Prices: Twelve Data adjusted for splits + dividends · Macro/Funding: FRED public CSV (no API key) · Universe start constrained by XLC inception`;
+  }catch(e){
+    status.textContent="DATA UNAVAILABLE";
+    status.title=e.message;
+    document.getElementById("btStatsBody").innerHTML=`<tr><td colspan="3">${e.message}</td></tr>`;
+    ["btCagr","btSharpe","btMdd","btHit","btTop1","btBottom1"].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent="—";
+    });
+    if(btEquityChart){btEquityChart.destroy();btEquityChart=null;}
+    if(btLSChart){btLSChart.destroy();btLSChart=null;}
+    if(btAnnualChart){btAnnualChart.destroy();btAnnualChart=null;}
+    if(lsContributionChart){lsContributionChart.destroy();lsContributionChart=null;}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="Run backtest";}
+  }
+}
+
+function markBacktestDirty(){
+  const s=document.getElementById("btStatus");
+  if(s) s.textContent="PARAMETERS CHANGED · click Run backtest";
+}
+["btStart","btRebalance","btTopN","btCosts","btMode","btBorrow"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("change",markBacktestDirty);
+});
+
+document.getElementById("runBacktest")?.addEventListener("click",loadBacktest);
+window.addEventListener("load",loadBacktest);
+
+
+const demoHoldings=[
+ {p:"2025-10",long:["XLK","XLC","XLY"],short:["XLU","XLP","XLRE"],reg:"BULL FLATTENER",x:.008},
+ {p:"2025-11",long:["XLK","XLI","XLY"],short:["XLU","XLRE","XLP"],reg:"BULL FLATTENER",x:.004},
+ {p:"2025-12",long:["XLI","XLF","XLE"],short:["XLU","XLRE","XLK"],reg:"TRANSITION",x:.011},
+ {p:"2026-01",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.007},
+ {p:"2026-02",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.013},
+ {p:"2026-03",long:["XLE","XLF","XLV"],short:["XLU","XLRE","XLK"],reg:"VOL STRESS",x:.006},
+ {p:"2026-04",long:["XLE","XLF","XLV"],short:["XLU","XLRE","XLK"],reg:"VOL STRESS",x:.009},
+ {p:"2026-05",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.005},
+ {p:"2026-06",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.010},
+ {p:"2026-07",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.004},
+ {p:"2026-08",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.006},
+ {p:"2026-09",long:["XLE","XLF","XLI"],short:["XLU","XLRE","XLK"],reg:"BEAR STEEPENER",x:.008}
+];
+
+document.getElementById("holdingsHistory").innerHTML=demoHoldings.slice().reverse().map(x=>`
+  <div class="holdRow">
+    <div>${x.p}</div>
+    <div>${x.long.map(s=>`<span class="holdChip">${s}</span>`).join("")}</div>
+    <div>${x.short.map(s=>`<span class="holdChip">${s}</span>`).join("")}</div>
+    <div><span class="regimeChip">${x.reg}</span></div>
+    <div class="${x.x>=0?'good':'bad'}">${x.x>=0?'+':''}${(100*x.x).toFixed(1)}%</div>
+  </div>`).join("");
+
+const alphaLabels=["2021","2022","2023","2024","2025","2026"];
+const alphaVals=[2.1,5.8,3.4,4.0,2.7,3.1];
+new Chart(document.getElementById("rollingAlpha"),{
+ type:"line",data:{labels:alphaLabels,datasets:[{label:"Rolling 12M excess",data:alphaVals,borderColor:"#29d49a",backgroundColor:"rgba(41,212,154,.08)",fill:true,tension:.3}]},
+ options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"Percentage points"}}}}
+});
+
+new Chart(document.getElementById("drawdownChart"),{
+ type:"line",data:{labels:["2020","2021","2022","2023","2024","2025","2026"],datasets:[
+  {label:"Strategy",data:[-18,-4,-15,-7,-8,-5,-6],borderColor:"#29d49a",tension:.25},
+  {label:"SPY",data:[-25,-5,-24,-10,-9,-8,-7],borderColor:"#4ea5ff",tension:.25}
+ ]},
+ options:{scales:{y:{max:0,title:{display:true,text:"Drawdown %"}}}}
+});
+
+const sensRows=[
+ ["Weekly",[12.7,13.2,12.9,12.3]],
+ ["Monthly",[13.1,13.8,13.4,12.8]],
+ ["Quarterly",[11.8,12.6,12.5,12.1]]
+];
+const sensTop=["Top 2","Top 3","Top 4","Top 5"];
+document.getElementById("robustnessGrid").innerHTML=
+ '<div></div>'+sensTop.map(x=>`<div class="head">${x}</div>`).join('')+
+ sensRows.map(r=>`<div class="name">${r[0]}</div>`+r[1].map(v=>`<div style="background:${v>=13?'rgba(41,212,154,.18)':v>=12.5?'rgba(78,165,255,.16)':'rgba(242,188,85,.13)'}">${v.toFixed(1)}%</div>`).join('')).join('');
+
+new Chart(document.getElementById("costSensitivity"),{
+ type:"line",data:{labels:["0 bps","5 bps","10 bps","25 bps","50 bps"],datasets:[
+  {label:"CAGR",data:[14.4,14.1,13.8,13.0,11.9],borderColor:"#f2bc55",tension:.25}
+ ]},
+ options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:"CAGR %"}}}}
+});
+
+
+new Chart(document.getElementById("playbookWeights"),{
+ type:"bar",
+ data:{labels:["Rates","Real yields","Volatility","Credit","Inflation","Momentum"],datasets:[
+   {data:[24,20,16,15,10,15],backgroundColor:["#f2bc55","#f06673","#9b83ff","#4ea5ff","#29d49a","#4bd9ff"]}
+ ]},
+ options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:30,title:{display:true,text:"Weight %"}}}}
+});
+
+
+const fxLabels=["EURUSD","USDJPY","USDCHF","GBPUSD","AUDUSD","USDCAD","USDCNH","AUDJPY"];
+const fxCorr=[
+[1,-.41,-.62,.78,.66,-.36,-.48,.39],
+[-.41,1,.44,-.35,-.28,.22,.31,.57],
+[-.62,.44,1,-.51,-.39,.29,.37,.18],
+[.78,-.35,-.51,1,.59,-.31,-.42,.34],
+[.66,-.28,-.39,.59,1,-.48,-.55,.71],
+[-.36,.22,.29,-.31,-.48,1,.33,-.22],
+[-.48,.31,.37,-.42,-.55,.33,1,-.46],
+[.39,.57,.18,.34,.71,-.22,-.46,1]
+];
+function fxColor(v){return v>=0?`rgba(240,102,115,${.12+.58*Math.abs(v)})`:`rgba(78,165,255,${.12+.55*Math.abs(v)})`}
+function buildFxHeat(){
+ const e=document.getElementById("fxHeat"); if(!e)return;
+ e.innerHTML='<div></div>'+fxLabels.map(x=>`<div class="head">${x}</div>`).join('');
+ fxLabels.forEach((r,i)=>e.innerHTML+=`<div class="name">${r}</div>`+fxCorr[i].map(v=>`<div style="background:${fxColor(v)}">${v.toFixed(2)}</div>`).join(''));
+}
+buildFxHeat();
+
+new Chart(document.getElementById("fxCrossAsset"),{
+ type:"bar",
+ data:{labels:["USD/SPX","AUDJPY/SPX","USDCNH/Copper","USD/Gold","USD/Real Yield","CAD/Oil"],datasets:[
+  {data:[-.46,.63,-.58,-.51,.54,-.42],backgroundColor:["#4ea5ff","#29d49a","#f06673","#4ea5ff","#f2bc55","#4ea5ff"]}
+ ]},
+ options:{plugins:{legend:{display:false}},scales:{y:{min:-1,max:1,title:{display:true,text:"Correlation"}}}}
+});
+
+new Chart(document.getElementById("fxRiskComposite"),{
+ type:"line",
+ data:{labels:["Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"],datasets:[
+  {label:"Risk FX Score",data:[42,39,46,51,48,54,57,61,58,63,65,68],borderColor:"#f06673",backgroundColor:"rgba(240,102,115,.08)",fill:true,tension:.3}
+ ]},
+ options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}
+});
+
+const matches=[["Yield curve shape",96],["Equity/Bond corr",94],["Vol structure",89],["Credit direction",82],["USD behaviour",78],["Commodity mix",71]];
+document.getElementById('matches').innerHTML=matches.map(x=>`<div class="metric"><span>${x[0]}</span><div class="bar"><span style="width:${x[1]}%;background:var(--cyan)"></span></div><b>${x[1]}%</b></div>`).join('');
+</script>
+</body></html>

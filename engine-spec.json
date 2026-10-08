@@ -1,0 +1,296 @@
+{
+  "version": "4.22-fred-keyless",
+  "purpose": "Rank current market signals by historical abnormality.",
+  "scoring": {
+    "z_score": "(current - historical_mean) / historical_std",
+    "percentile": "historical empirical percentile",
+    "severity": {
+      "NORMAL": "|z| < 1.0",
+      "WATCH": "1.0 <= |z| < 1.5",
+      "UNUSUAL": "1.5 <= |z| < 2.0",
+      "EXTREME": "|z| >= 2.0"
+    },
+    "market_regime_score": "weighted normalized combination of correlation, rates, volatility, credit, commodities and FX anomalies"
+  },
+  "suggested_live_sources": {
+    "rates_macro": "FRED / ALFRED",
+    "volatility": "Cboe",
+    "market_prices": "Polygon, Twelve Data, Tiingo, Financial Modeling Prep or paid institutional feed",
+    "credit": "FRED ICE BofA OAS series / institutional feed"
+  },
+  "what_changed_today": {
+    "delta_score": "(signal_today - signal_yesterday) / historical_std_of_daily_signal_change",
+    "goal": "Separate high absolute levels from genuinely new daily changes.",
+    "ranking": "Sort by absolute Delta Score, then flag improving vs deteriorating.",
+    "interpretation": "Highlight interactions between signals, not only individual moves."
+  },
+  "risk_bias_model": {
+    "output": [
+      "BULLISH",
+      "NEUTRAL",
+      "BEARISH"
+    ],
+    "conviction_range": "50-100%",
+    "directional_inputs": {
+      "equity_momentum": 0.28,
+      "rate_shock": -0.2,
+      "correlation_stress": -0.22,
+      "volatility_stress": -0.16,
+      "credit_stress": -0.1,
+      "usd_stress": -0.04
+    },
+    "thresholds": {
+      "bearish": "score <= -0.18",
+      "neutral": "-0.18 < score < 0.18",
+      "bullish": "score >= 0.18"
+    }
+  },
+  "risk_bias_horizons": {
+    "1D": "fastest response; highest sensitivity to momentum, rates, correlation and volatility",
+    "1W": "moderated short-term stress; more emphasis on persistence",
+    "1M": "lower sensitivity to daily shocks; higher emphasis on broader trend and credit persistence"
+  },
+  "regime_divergence_alert": {
+    "LOW": "all horizons aligned or near-aligned",
+    "MID": "one horizon differs by one regime step",
+    "HIGH": "direct BULLISH vs BEARISH disagreement across horizons",
+    "purpose": "Distinguish temporary shocks from genuine regime changes."
+  },
+  "volatility_regime": {
+    "core_metrics": [
+      "VIX implied 30D",
+      "realized volatility 5D/10D/20D/60D",
+      "volatility risk premium = implied - realized",
+      "implied / realized ratio",
+      "RV5 / RV20 acceleration",
+      "VIX term structure slope",
+      "VVIX",
+      "SKEW",
+      "MOVE / VIX"
+    ],
+    "regimes": [
+      "LOW_CHEAP",
+      "NORMAL",
+      "RICH",
+      "STRESS",
+      "PANIC"
+    ],
+    "future_live_logic": "Compute realized vol directly from SPY/SPX returns; fetch implied-volatility indices separately."
+  },
+  "rates_regime": {
+    "core_metrics": [
+      "Treasury curve 2Y/5Y/10Y/30Y",
+      "2s10s, 5s30s, 2s30s, 10s30s",
+      "daily curve spread changes",
+      "level / slope / curvature decomposition",
+      "10Y nominal yield",
+      "10Y real yield",
+      "5Y and 10Y breakevens",
+      "5Y5Y inflation expectations",
+      "MOVE index"
+    ],
+    "regimes": [
+      "BULL_STEEPENER",
+      "BULL_FLATTENER",
+      "BEAR_STEEPENER",
+      "BEAR_FLATTENER",
+      "PARALLEL_SHIFT",
+      "CURVATURE_SHOCK"
+    ],
+    "narrative_logic": "Separate real-yield shocks from inflation-expectation shocks and identify whether front-end, belly, or long-end drives the move."
+  },
+  "sector_allocation_engine": {
+    "outputs": [
+      "OVERWEIGHT",
+      "NEUTRAL+",
+      "NEUTRAL",
+      "NEUTRAL-",
+      "UNDERWEIGHT"
+    ],
+    "score_range": "0-100",
+    "inputs": [
+      "rates regime and real yields",
+      "curve slope",
+      "inflation/breakevens",
+      "volatility regime",
+      "credit conditions",
+      "USD",
+      "equity momentum"
+    ],
+    "current_demo_preference": {
+      "overweight": [
+        "Energy",
+        "Financials"
+      ],
+      "neutral_plus": [
+        "Industrials",
+        "Healthcare"
+      ],
+      "underweight": [
+        "Technology",
+        "Real Estate",
+        "Utilities"
+      ]
+    },
+    "guardrail": "Relative regime score only; combine with valuation, earnings revisions and price momentum."
+  },
+  "backtest_engine": {
+    "universe": "US equity sectors",
+    "rebalance": [
+      "weekly",
+      "monthly",
+      "quarterly"
+    ],
+    "portfolio_modes": [
+      "Top-3 rank-weighted long-only: 50% / 25% / 25%",
+      "Top-3 long / Bottom-3 short with 50% / 25% / 25% on each side",
+      "Extreme conviction: +200% best-ranked sector / -200% worst-ranked sector"
+    ],
+    "required_rules": [
+      "point-in-time inputs only",
+      "no look-ahead",
+      "include transaction costs",
+      "test multiple rebalance frequencies",
+      "run out-of-sample tests"
+    ],
+    "metrics": [
+      "CAGR",
+      "annualized volatility",
+      "Sharpe",
+      "max drawdown",
+      "hit rate",
+      "turnover",
+      "average holding period"
+    ],
+    "current_ui_note": "Displayed performance is illustrative until historical live data are connected.",
+    "status": "REAL DATA ONLY",
+    "data_sources": {
+      "sector_and_SPY_prices": "Twelve Data daily adjusted/close history",
+      "macro": "FRED CSV series DGS2, DGS10, DFII10, T10YIE, VIXCLS, BAMLH0A0HYM2"
+    },
+    "signal_timing": "Signals computed at month-end t; portfolio return measured from t to t+1.",
+    "long_short_exposure": {
+      "long_gross": "100%",
+      "short_gross": "100%",
+      "net": "0%",
+      "gross": "200%",
+      "rank_weights": [
+        0.5,
+        0.25,
+        0.25
+      ]
+    },
+    "extreme_mode": {
+      "long": "+200% best sector",
+      "short": "-200% worst sector",
+      "net": "0%",
+      "gross": "400%",
+      "purpose": "Test ranking power at the extremes."
+    },
+    "default_mode": "Extreme conviction",
+    "primary_rule": {
+      "top_1_long": "+200% sector ranked #1",
+      "bottom_1_short": "-200% sector ranked last",
+      "net_exposure": "0%",
+      "gross_exposure": "400%"
+    },
+    "ui_controls": {
+      "start_date": "active",
+      "rebalance": "monthly live; weekly/quarterly visible but return explicit not-implemented error",
+      "topN": "active for ranked3 mode",
+      "transaction_costs": "active",
+      "mode": "active"
+    },
+    "diagnostics": [
+      "Top 1 / Bottom 1 rank persistence",
+      "average holding duration",
+      "average best-vs-worst spread",
+      "Top 1 beats Bottom 1 hit rate",
+      "positive spread after costs",
+      "average long and short contribution"
+    ],
+    "interactive_controls": [
+      "start",
+      "rebalance",
+      "topN",
+      "costBps",
+      "mode"
+    ],
+    "fallback_benchmark": {
+      "source_basis": "S&P 500 historical annual returns",
+      "method": "annual return converted to compounded period return for local interactive display",
+      "note": "Live API mode remains preferred for true daily/monthly path."
+    },
+    "no_simulated_fallback": true,
+    "full_11_sector_universe_start": "2018-06-19",
+    "pricing": "Twelve Data time_series with adjust=all (splits + dividends)",
+    "funding": "FRED DFF, monthly",
+    "short_borrow": "user-selectable assumption in basis points per year",
+    "missing_data_policy": "Return Data unavailable; never fabricate performance.",
+    "fred_access": "Public FRED CSV, no API key required",
+    "required_env_vars": [
+      "TWELVE_DATA_API_KEY"
+    ]
+  },
+  "rotation_history": {
+    "holdings_history": "show top and bottom sectors for each rebalance date",
+    "rolling_alpha": "12-month strategy excess return",
+    "drawdown_comparison": "strategy vs benchmark",
+    "robustness_matrix": "rebalance frequency x Top-N sensitivity",
+    "cost_sensitivity": "CAGR under multiple transaction-cost assumptions",
+    "regime_hit_rate": "performance conditional on rates/volatility regime"
+  },
+  "regime_playbook": {
+    "purpose": "Translate rates, volatility, credit, inflation and momentum regimes into sector and style preferences.",
+    "outputs": [
+      "favored sectors",
+      "neutral/selective sectors",
+      "underweight sectors",
+      "preferred equity style",
+      "conviction",
+      "scenario triggers that change the recommendation"
+    ],
+    "signal_weights": {
+      "rates": 24,
+      "real_yields": 20,
+      "volatility": 16,
+      "credit": 15,
+      "inflation": 10,
+      "momentum": 15,
+      "fx": 8
+    },
+    "guardrails": [
+      "confirm with relative momentum",
+      "check earnings revisions",
+      "avoid valuation traps",
+      "reduce conviction when signals diverge"
+    ]
+  },
+  "fx_regime": {
+    "pairs": [
+      "EURUSD",
+      "USDJPY",
+      "USDCHF",
+      "GBPUSD",
+      "AUDUSD",
+      "USDCAD",
+      "USDCNH",
+      "AUDJPY"
+    ],
+    "cross_asset_links": [
+      "S&P 500",
+      "Gold",
+      "Copper",
+      "Oil",
+      "US real yields",
+      "VIX"
+    ],
+    "outputs": [
+      "Dollar Regime Score",
+      "Risk FX Score",
+      "FX correlation breaks",
+      "Playbook impact"
+    ],
+    "playbook_role": "Confirmation layer for global risk appetite, liquidity and commodity/growth signals."
+  }
+}

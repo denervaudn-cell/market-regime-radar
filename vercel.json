@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/market.js": {
+      "maxDuration": 30
+    },
+    "api/backtest.js": {
+      "maxDuration": 60
+    }
+  }
+}
