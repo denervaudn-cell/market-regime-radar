@@ -203,3 +203,22 @@ All selectors now recalculate charts and KPIs. Weekly/monthly/quarterly work loc
 - FRED macro and funding series load from public CSV endpoints
 - no `FRED_API_KEY` needed
 - real-data-only backtest policy remains unchanged
+
+## V4.23 — Backtest runner isolated
+- Run backtest has its own standalone JavaScript runner
+- button no longer depends on the rest of the dashboard JS
+- API errors are shown directly in the backtest status line
+- API non-JSON responses are surfaced instead of failing silently
+- real result charts are redrawn independently
+
+## V4.24 — Separate Long Only Backtest
+Top 1 100%, Top 2 65%, Top 3 45%; 210% total long exposure; no shorts; 110% excess notional financed at historical Fed Funds.
+
+## V4.25 — Strategy Compare
+Direct comparison of Extreme Long/Short, leveraged Long Only 100/65/45 and SPY on identical periods and cost assumptions.
+
+## V4.26 — Shared Data Backtest
+- comparison mode loads ETF/macro history once
+- both Long/Short and Long Only are computed from the same in-memory dataset
+- reduces Twelve Data calls and rate-limit failures
+- comparison uses one API request instead of two

@@ -62,6 +62,8 @@ canvas{max-height:290px}
   <div class="tab active" data-v="overview">Overview</div>
   <div class="tab" data-v="sectors">Sector Allocation</div>
   <div class="tab" data-v="backtest">Backtest</div>
+  <div class="tab" data-v="longonly">Long Only Backtest</div>
+  <div class="tab" data-v="compare">Strategy Compare</div>
   <div class="tab" data-v="rotation">Rotation History</div>
   <div class="tab" data-v="playbook">Regime Playbook</div>
   <div class="tab" data-v="live">Live Data</div>
@@ -297,6 +299,82 @@ canvas{max-height:290px}
 </div>
 </section>
 
+
+
+<section id="compare" class="view">
+<div class="grid">
+  <div class="card s12">
+    <div class="section"><h3>Strategy Comparison</h3>
+      <div class="controls">
+        <select id="cmpStart"><option value="2018-06-19">2018-06-19</option><option value="2020-01-01" selected>2020</option><option value="2021-01-01">2021</option><option value="2022-01-01">2022</option></select>
+        <select id="cmpCosts"><option value="0">0 bps costs</option><option value="10" selected>10 bps costs</option><option value="25">25 bps costs</option><option value="50">50 bps costs</option></select>
+        <select id="cmpBorrow"><option value="25">25 bps borrow</option><option value="50" selected>50 bps borrow</option><option value="100">100 bps borrow</option><option value="200">200 bps borrow</option></select>
+        <button id="runCompare">Run comparison</button>
+      </div>
+    </div>
+    <div id="cmpStatus" class="note">READY · compares both real-data strategies over the same period.</div>
+  </div>
+
+  <div class="card s4"><div class="label">Best CAGR</div><div class="btKpi" id="cmpBestCagr">—</div><div class="mini" id="cmpBestCagrName">—</div></div>
+  <div class="card s4"><div class="label">Best Sharpe</div><div class="btKpi" id="cmpBestSharpe">—</div><div class="mini" id="cmpBestSharpeName">—</div></div>
+  <div class="card s4"><div class="label">Lower Drawdown</div><div class="btKpi" id="cmpBestDd">—</div><div class="mini" id="cmpBestDdName">—</div></div>
+
+  <div class="card s8">
+    <div class="section"><h3>Growth of $100</h3><small>Long/Short vs Long Only vs SPY</small></div>
+    <canvas id="cmpEquity"></canvas>
+  </div>
+
+  <div class="card s4">
+    <div class="section"><h3>Performance table</h3><small>same period / same costs</small></div>
+    <table>
+      <thead><tr><th>Metric</th><th>L/S</th><th>Long Only</th><th>SPY</th></tr></thead>
+      <tbody id="cmpStats"><tr><td colspan="4">Waiting for run…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Annual Returns</h3><small>strategy comparison</small></div>
+    <canvas id="cmpAnnual"></canvas>
+  </div>
+
+  <div class="card s6">
+    <div class="section"><h3>Risk Comparison</h3><small>volatility and drawdown</small></div>
+    <canvas id="cmpRisk"></canvas>
+  </div>
+
+  <div class="card s12">
+    <div class="summaryBox" id="cmpNarrative">
+      Run the comparison to see whether the market-neutral extreme ranking or the leveraged long-only implementation is more efficient.
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="longonly" class="view">
+<div class="grid">
+  <div class="card s12">
+    <div class="section"><h3>Long Only Conviction Backtest</h3>
+      <div class="controls">
+        <select id="loStart"><option value="2018-06-19">2018-06-19</option><option value="2020-01-01" selected>2020</option><option value="2021-01-01">2021</option><option value="2022-01-01">2022</option><option value="2023-01-01">2023</option></select>
+        <select id="loCosts"><option value="0">0 bps costs</option><option value="10" selected>10 bps costs</option><option value="25">25 bps costs</option><option value="50">50 bps costs</option></select>
+        <button id="runLongOnly">Run long-only backtest</button>
+      </div>
+    </div>
+    <div class="note">Top 1 = <b>100%</b> · Top 2 = <b>65%</b> · Top 3 = <b>45%</b> · total exposure = <b>210% long</b>. No short positions. The extra 110% leverage is financed using the historical Effective Fed Funds rate.<div id="loStatus" class="mini" style="margin-top:8px">READY · click Run long-only backtest · uses the same real historical engine</div></div>
+  </div>
+  <div class="card s3"><div class="label">Top 1</div><div class="btKpi btPositive" id="loTop1">—</div><div class="mini">100% weight</div></div>
+  <div class="card s3"><div class="label">Top 2</div><div class="btKpi btPositive" id="loTop2">—</div><div class="mini">65% weight</div></div>
+  <div class="card s3"><div class="label">Top 3</div><div class="btKpi btPositive" id="loTop3">—</div><div class="mini">45% weight</div></div>
+  <div class="card s3"><div class="label">Gross / Net</div><div class="btKpi">210%</div><div class="mini">long only</div></div>
+  <div class="card s3"><div class="label">CAGR</div><div class="btKpi" id="loCagr">—</div><div class="mini" id="loBenchCagr">benchmark —</div></div>
+  <div class="card s3"><div class="label">Sharpe</div><div class="btKpi" id="loSharpe">—</div><div class="mini" id="loBenchSharpe">benchmark —</div></div>
+  <div class="card s3"><div class="label">Max Drawdown</div><div class="btKpi" id="loMdd">—</div><div class="mini" id="loBenchMdd">benchmark —</div></div>
+  <div class="card s3"><div class="label">Hit Rate</div><div class="btKpi" id="loHit">—</div><div class="mini">months beating SPY</div></div>
+  <div class="card s8"><div class="section"><h3>Long Only vs S&P 500</h3><small>growth of $100</small></div><canvas id="loEquityCurve"></canvas></div>
+  <div class="card s4"><div class="section"><h3>Backtest statistics</h3><small>real data only</small></div><table><thead><tr><th>Metric</th><th>Long Only</th><th>SPY</th></tr></thead><tbody id="loStatsBody"><tr><td colspan="3">Waiting for run…</td></tr></tbody></table></div>
+</div>
+</section>
+
 <section id="backtest" class="view">
 <div class="grid">
   <div class="card s12">
@@ -311,7 +389,7 @@ canvas{max-height:290px}
     </div>
     <div class="note">
       Backtest point-in-time : à chaque fin de mois, le moteur utilise uniquement les données connues à cette date, calcule les scores sectoriels, investit dans le Top 3 le mois suivant avec des poids 50% / 25% / 25% et applique les coûts de transaction. Aucun rendement futur n’entre dans le score.
-    <div id="btSource" class="mini" style="margin-top:8px">Waiting for real data source validation…</div></div>
+    <div id="btSource" class="mini" style="margin-top:8px">READY · click Run backtest</div></div>
   </div>
 
   <div class="card s3"><div class="label">Top 3 CAGR</div><div class="btKpi" id="btCagr">—</div><div class="mini" id="btBenchCagr">waiting for historical data</div></div>
@@ -1676,4 +1754,220 @@ new Chart(document.getElementById("fxRiskComposite"),{
 const matches=[["Yield curve shape",96],["Equity/Bond corr",94],["Vol structure",89],["Credit direction",82],["USD behaviour",78],["Commodity mix",71]];
 document.getElementById('matches').innerHTML=matches.map(x=>`<div class="metric"><span>${x[0]}</span><div class="bar"><span style="width:${x[1]}%;background:var(--cyan)"></span></div><b>${x[1]}%</b></div>`).join('');
 </script>
+
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function pct(x){ return x==null || !isFinite(x) ? "—" : (x*100).toFixed(1)+"%"; }
+  function num(x,d){ return x==null || !isFinite(x) ? "—" : Number(x).toFixed(d||2); }
+
+  async function runRealBacktest(){
+    const btn=$("runBacktest"), status=$("btStatus");
+    if(!btn || !status) return;
+
+    const params={
+      start:$("btStart")?.value || "2020-01-01",
+      rebalance:$("btRebalance")?.value || "monthly",
+      topN:$("btTopN")?.value || "3",
+      costBps:$("btCosts")?.value || "10",
+      shortBorrowBps:$("btBorrow")?.value || "50",
+      mode:$("btMode")?.value || "extreme1"
+    };
+
+    btn.disabled=true;
+    btn.textContent="Running…";
+    status.textContent="LOADING REAL DATA…";
+    status.title="";
+
+    try{
+      const qs=new URLSearchParams(params);
+      qs.set("t",Date.now().toString());
+      const response=await fetch("/api/backtest?"+qs.toString(),{cache:"no-store"});
+      const text=await response.text();
+      let d;
+      try{ d=JSON.parse(text); }
+      catch(_){ throw new Error("API returned non-JSON response: "+text.slice(0,180)); }
+
+      if(!response.ok || !d.ok) throw new Error(d.error || ("HTTP "+response.status));
+
+      $("btCagr").textContent=pct(d.stats?.strategy?.cagr);
+      $("btBenchCagr").textContent="vs benchmark "+pct(d.stats?.benchmark?.cagr);
+      $("btSharpe").textContent=num(d.stats?.strategy?.sharpe);
+      $("btBenchSharpe").textContent="benchmark "+num(d.stats?.benchmark?.sharpe);
+      $("btMdd").textContent=pct(d.stats?.strategy?.maxDrawdown);
+      $("btBenchMdd").textContent="benchmark "+pct(d.stats?.benchmark?.maxDrawdown);
+      $("btHit").textContent=pct(d.stats?.strategy?.hitRate);
+      $("btTop1").textContent=d.latest?.longs?.[0] || "—";
+      $("btBottom1").textContent=d.latest?.shorts?.[0] || "—";
+
+      if($("rankStability")) $("rankStability").textContent=pct(d.diagnostics?.rankPersistence);
+      if($("avgExtremeHolding")) $("avgExtremeHolding").textContent=d.diagnostics?.avgHoldingMonths!=null ? num(d.diagnostics.avgHoldingMonths,1)+" mo" : "—";
+      if($("avgExtremeSpread")) $("avgExtremeSpread").textContent=pct(d.diagnostics?.avgMonthlySpread);
+
+      if($("btStatsBody")){
+        $("btStatsBody").innerHTML=`
+          <tr><td>CAGR</td><td>${pct(d.stats.strategy.cagr)}</td><td>${pct(d.stats.benchmark.cagr)}</td></tr>
+          <tr><td>Annual Vol</td><td>${pct(d.stats.strategy.annVol)}</td><td>${pct(d.stats.benchmark.annVol)}</td></tr>
+          <tr><td>Sharpe</td><td>${num(d.stats.strategy.sharpe)}</td><td>${num(d.stats.benchmark.sharpe)}</td></tr>
+          <tr><td>Max Drawdown</td><td>${pct(d.stats.strategy.maxDrawdown)}</td><td>${pct(d.stats.benchmark.maxDrawdown)}</td></tr>
+          <tr><td>Hit Rate</td><td>${pct(d.stats.strategy.hitRate)}</td><td>—</td></tr>
+          <tr><td>Turnover</td><td>${pct(d.stats.strategy.turnover)}</td><td>—</td></tr>`;
+      }
+
+      status.textContent=`REAL DATA · ${d.meta.start} → ${d.meta.end} · ${d.meta.months} periods`;
+      if($("btSource")) $("btSource").textContent=`${d.meta.source} · Funding: ${d.meta.fundingSeries} · Short borrow: ${d.meta.shortBorrowBps} bps`;
+
+      // Draw charts independently if Chart.js is available.
+      if(window.Chart && Array.isArray(d.equityCurve)){
+        const eq=$("btEquityCurve");
+        if(eq){
+          if(window.__realBtEq) window.__realBtEq.destroy();
+          window.__realBtEq=new Chart(eq,{
+            type:"line",
+            data:{labels:d.equityCurve.map(x=>x.date),datasets:[
+              {label:"Strategy",data:d.equityCurve.map(x=>x.strategy),borderColor:"#29d49a",pointRadius:0},
+              {label:"S&P 500",data:d.equityCurve.map(x=>x.benchmark),borderColor:"#4ea5ff",pointRadius:0}
+            ]},
+            options:{responsive:true}
+          });
+        }
+        const ls=$("btLongShort");
+        if(ls && Array.isArray(d.longShortCurve)){
+          if(window.__realBtLs) window.__realBtLs.destroy();
+          window.__realBtLs=new Chart(ls,{
+            type:"line",
+            data:{labels:d.longShortCurve.map(x=>x.date),datasets:[
+              {label:"Top 1 +200% / Bottom 1 -200%",data:d.longShortCurve.map(x=>x.value),borderColor:"#f2bc55",pointRadius:0}
+            ]},
+            options:{responsive:true}
+          });
+        }
+      }
+    }catch(err){
+      status.textContent="DATA UNAVAILABLE · "+err.message;
+      status.title=err.message;
+      if($("btStatsBody")) $("btStatsBody").innerHTML=`<tr><td colspan="3">${err.message}</td></tr>`;
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Run backtest";
+    }
+  }
+
+  function init(){
+    const btn=$("runBacktest");
+    if(!btn || btn.dataset.realRunner==="1") return;
+    btn.dataset.realRunner="1";
+    // Replace previous listeners by cloning the button.
+    const clone=btn.cloneNode(true);
+    btn.parentNode.replaceChild(clone,btn);
+    clone.addEventListener("click",runRealBacktest);
+    ["btStart","btRebalance","btTopN","btCosts","btBorrow","btMode"].forEach(id=>{
+      $(id)?.addEventListener("change",()=>{
+        if($("btStatus")) $("btStatus").textContent="PARAMETERS CHANGED · click Run backtest";
+      });
+    });
+    if($("btStatus")) $("btStatus").textContent="READY · click Run backtest";
+  }
+
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init);
+  else init();
+})();
+</script>
+
+
+<script>
+(function(){
+ const $=id=>document.getElementById(id), pct=x=>x==null||!isFinite(x)?"—":(100*x).toFixed(1)+"%", num=x=>x==null||!isFinite(x)?"—":Number(x).toFixed(2);
+ let c=null;
+ async function run(){
+  const b=$("runLongOnly"),s=$("loStatus"); if(!b||!s)return;
+  b.disabled=true;b.textContent="Running…";s.textContent="LOADING REAL DATA…";
+  const q=new URLSearchParams({start:$("loStart").value,rebalance:"monthly",topN:"3",costBps:$("loCosts").value,shortBorrowBps:"0",mode:"longonly3",t:String(Date.now())});
+  try{
+   const r=await fetch("/api/backtest?"+q,{cache:"no-store"}),t=await r.text(); let d;
+   try{d=JSON.parse(t)}catch(_){throw new Error("API returned non-JSON")}
+   if(!r.ok||!d.ok)throw new Error(d.error||("HTTP "+r.status));
+   $("loTop1").textContent=d.latest?.longs?.[0]||"—"; $("loTop2").textContent=d.latest?.longs?.[1]||"—"; $("loTop3").textContent=d.latest?.longs?.[2]||"—";
+   $("loCagr").textContent=pct(d.stats.strategy.cagr); $("loBenchCagr").textContent="benchmark "+pct(d.stats.benchmark.cagr);
+   $("loSharpe").textContent=num(d.stats.strategy.sharpe); $("loBenchSharpe").textContent="benchmark "+num(d.stats.benchmark.sharpe);
+   $("loMdd").textContent=pct(d.stats.strategy.maxDrawdown); $("loBenchMdd").textContent="benchmark "+pct(d.stats.benchmark.maxDrawdown);
+   $("loHit").textContent=pct(d.stats.strategy.hitRate);
+   $("loStatsBody").innerHTML=`<tr><td>CAGR</td><td>${pct(d.stats.strategy.cagr)}</td><td>${pct(d.stats.benchmark.cagr)}</td></tr><tr><td>Annual Vol</td><td>${pct(d.stats.strategy.annVol)}</td><td>${pct(d.stats.benchmark.annVol)}</td></tr><tr><td>Sharpe</td><td>${num(d.stats.strategy.sharpe)}</td><td>${num(d.stats.benchmark.sharpe)}</td></tr><tr><td>Max Drawdown</td><td>${pct(d.stats.strategy.maxDrawdown)}</td><td>${pct(d.stats.benchmark.maxDrawdown)}</td></tr><tr><td>Hit Rate</td><td>${pct(d.stats.strategy.hitRate)}</td><td>—</td></tr>`;
+   if(window.Chart){if(c)c.destroy();c=new Chart($("loEquityCurve"),{type:"line",data:{labels:d.equityCurve.map(x=>x.date),datasets:[{label:"Long Only 100/65/45",data:d.equityCurve.map(x=>x.strategy),borderColor:"#29d49a",pointRadius:0},{label:"S&P 500",data:d.equityCurve.map(x=>x.benchmark),borderColor:"#4ea5ff",pointRadius:0}]},options:{responsive:true}});}
+   s.textContent=`REAL DATA · ${d.meta.start} → ${d.meta.end} · 210% long`;
+  }catch(e){s.textContent="DATA UNAVAILABLE · "+e.message;$("loStatsBody").innerHTML=`<tr><td colspan="3">${e.message}</td></tr>`}
+  finally{b.disabled=false;b.textContent="Run long-only backtest";}
+ }
+ function init(){const b=$("runLongOnly");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",run)}}
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
+
+
+<script>
+(function(){
+ const $=id=>document.getElementById(id),pct=x=>x==null||!isFinite(x)?"—":(100*x).toFixed(1)+"%",num=x=>x==null||!isFinite(x)?"—":Number(x).toFixed(2);
+ let eqChart=null,annChart=null,riskChart=null;
+
+ async function run(){
+  const b=$("runCompare"),s=$("cmpStatus"); if(!b||!s)return;
+  b.disabled=true;b.textContent="Running…";s.textContent="LOADING BOTH REAL STRATEGIES…";
+  const start=$("cmpStart").value,costs=$("cmpCosts").value,borrow=$("cmpBorrow").value;
+  try{
+   const q=new URLSearchParams({start,rebalance:"monthly",topN:"3",costBps:String(costs),shortBorrowBps:String(borrow),mode:"compare",t:String(Date.now())});
+   const r=await fetch("/api/backtest?"+q,{cache:"no-store"});
+   const t=await r.text(); let payload;
+   try{payload=JSON.parse(t)}catch(_){throw new Error("API returned non-JSON")}
+   if(!r.ok||!payload.ok)throw new Error(payload.error||("HTTP "+r.status));
+   const ls=payload.longshort,lo=payload.longonly,spy=payload.benchmark;
+
+   $("cmpStats").innerHTML=`
+    <tr><td>CAGR</td><td>${pct(ls.stats.strategy.cagr)}</td><td>${pct(lo.stats.strategy.cagr)}</td><td>${pct(spy.cagr)}</td></tr>
+    <tr><td>Annual Vol</td><td>${pct(ls.stats.strategy.annVol)}</td><td>${pct(lo.stats.strategy.annVol)}</td><td>${pct(spy.annVol)}</td></tr>
+    <tr><td>Sharpe</td><td>${num(ls.stats.strategy.sharpe)}</td><td>${num(lo.stats.strategy.sharpe)}</td><td>${num(spy.sharpe)}</td></tr>
+    <tr><td>Max Drawdown</td><td>${pct(ls.stats.strategy.maxDrawdown)}</td><td>${pct(lo.stats.strategy.maxDrawdown)}</td><td>${pct(spy.maxDrawdown)}</td></tr>
+    <tr><td>Hit Rate</td><td>${pct(ls.stats.strategy.hitRate)}</td><td>${pct(lo.stats.strategy.hitRate)}</td><td>—</td></tr>`;
+
+   const bestCagr=ls.stats.strategy.cagr>=lo.stats.strategy.cagr?["Long/Short",ls.stats.strategy.cagr]:["Long Only",lo.stats.strategy.cagr];
+   const bestSharpe=ls.stats.strategy.sharpe>=lo.stats.strategy.sharpe?["Long/Short",ls.stats.strategy.sharpe]:["Long Only",lo.stats.strategy.sharpe];
+   const bestDd=ls.stats.strategy.maxDrawdown>=lo.stats.strategy.maxDrawdown?["Long/Short",ls.stats.strategy.maxDrawdown]:["Long Only",lo.stats.strategy.maxDrawdown];
+   $("cmpBestCagr").textContent=pct(bestCagr[1]);$("cmpBestCagrName").textContent=bestCagr[0];
+   $("cmpBestSharpe").textContent=num(bestSharpe[1]);$("cmpBestSharpeName").textContent=bestSharpe[0];
+   $("cmpBestDd").textContent=pct(bestDd[1]);$("cmpBestDdName").textContent=bestDd[0];
+
+   if(window.Chart){
+    if(eqChart)eqChart.destroy();
+    eqChart=new Chart($("cmpEquity"),{type:"line",data:{labels:ls.equityCurve.map(x=>x.date),datasets:[
+      {label:"Long/Short 200/-200",data:ls.equityCurve.map(x=>x.strategy),borderColor:"#f2bc55",pointRadius:0},
+      {label:"Long Only 100/65/45",data:lo.equityCurve.map(x=>x.strategy),borderColor:"#29d49a",pointRadius:0},
+      {label:"SPY",data:ls.equityCurve.map(x=>x.benchmark),borderColor:"#4ea5ff",pointRadius:0}
+    ]},options:{responsive:true}});
+
+    const years=ls.annual.map(x=>x.year);
+    const loBy=Object.fromEntries(lo.annual.map(x=>[x.year,x.strategy]));
+    if(annChart)annChart.destroy();
+    annChart=new Chart($("cmpAnnual"),{type:"bar",data:{labels:years,datasets:[
+      {label:"Long/Short",data:ls.annual.map(x=>100*x.strategy),backgroundColor:"#f2bc55"},
+      {label:"Long Only",data:years.map(y=>100*(loBy[y]??0)),backgroundColor:"#29d49a"}
+    ]},options:{responsive:true}});
+
+    if(riskChart)riskChart.destroy();
+    riskChart=new Chart($("cmpRisk"),{type:"bar",data:{labels:["Annual Vol","Max Drawdown"],datasets:[
+      {label:"Long/Short",data:[100*ls.stats.strategy.annVol,Math.abs(100*ls.stats.strategy.maxDrawdown)],backgroundColor:"#f2bc55"},
+      {label:"Long Only",data:[100*lo.stats.strategy.annVol,Math.abs(100*lo.stats.strategy.maxDrawdown)],backgroundColor:"#29d49a"},
+      {label:"SPY",data:[100*spy.annVol,Math.abs(100*spy.maxDrawdown)],backgroundColor:"#4ea5ff"}
+    ]},options:{responsive:true}});
+   }
+
+   $("cmpNarrative").innerHTML=`<b>${bestSharpe[0]}</b> currently has the better risk-adjusted return over this period. Long/Short isolates ranking alpha with near-zero market beta, while Long Only adds substantial equity beta and 210% directional exposure.`;
+   s.textContent=`REAL DATA · ${payload.meta.start} → ${payload.meta.end} · single shared history load`;
+  }catch(e){s.textContent="DATA UNAVAILABLE · "+e.message;$("cmpStats").innerHTML=`<tr><td colspan="4">${e.message}</td></tr>`}
+  finally{b.disabled=false;b.textContent="Run comparison";}
+ }
+
+ function init(){const b=$("runCompare");if(b&&!b.dataset.bound){b.dataset.bound="1";b.addEventListener("click",run)}}
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+})();
+</script>
+
 </body></html>

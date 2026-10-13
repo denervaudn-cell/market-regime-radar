@@ -1,5 +1,5 @@
 {
-  "version": "4.22-fred-keyless",
+  "version": "4.26-shared-data-backtest",
   "purpose": "Rank current market signals by historical abnormality.",
   "scoring": {
     "z_score": "(current - historical_mean) / historical_std",
@@ -230,7 +230,23 @@
     "fred_access": "Public FRED CSV, no API key required",
     "required_env_vars": [
       "TWELVE_DATA_API_KEY"
-    ]
+    ],
+    "ui_runner": "Dedicated standalone script; isolated from errors in other dashboard modules.",
+    "long_only_mode": {
+      "top1": "100%",
+      "top2": "65%",
+      "top3": "45%",
+      "gross": "210%",
+      "net": "210%",
+      "short": "0%",
+      "funding": "110% excess notional at historical DFF"
+    },
+    "strategy_compare": [
+      "Extreme Long/Short 200/-200",
+      "Long Only 100/65/45",
+      "SPY benchmark"
+    ],
+    "data_loading": "Single shared history load per request; comparison computes both strategies from the same dataset."
   },
   "rotation_history": {
     "holdings_history": "show top and bottom sectors for each rebalance date",
