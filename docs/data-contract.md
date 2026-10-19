@@ -20,6 +20,16 @@ Optional inputs enable additional panels:
 
 - `VIX9D`, `VIX3M`, `VIX6M`, `VIX1Y`, `VVIX`, `SKEW`, `MOVE`: `price_basis: index`, `unit: index`. Use the actual index instruments, not ticker-prefix matches to unrelated equities.
 - `EURUSD`, `USDJPY`, `USDCHF`, `GBPUSD`, `AUDUSD`, `USDCAD`, `USDCNH`, `AUDJPY`: `price_basis: fx`, `unit: QUOTE/BASE`; for example EURUSD has `unit: USD/EUR`. Inversions/crosses must be calculated upstream from aligned observation and availability times, with that provenance in `source`.
+- `TLT`, `CPER` and their separate `_TR` indices: the same USD close/return conventions as the core ETFs. TLT is the long-Treasury ETF proxy; CPER is a copper-futures fund proxy, not a spot copper quote.
+- `T5YIE`, `T5YIFR`: rate/percent series for five-year breakeven and five-year forward inflation compensation. Supply the actual five-year-forward series; a linear difference is only an approximation.
+
+The complete preview universe has **62 series** (41 core + 7 volatility + 8 FX + 4 bond/copper + 2 inflation). Full V4 research coverage needs these extended inputs and enough prior daily history for normalization. The publisher still permits core-only feeds; missing extended evidence produces explicit partial/unavailable research sections. Analytics formulas, units and history requirements are in [analytics.md](analytics.md).
+
+### Explicit source provenance and mock inputs
+
+Snapshots may include `source: {"kind":"mock","label":"Synthetic market inputs · seeded preview v1","seed":8042}`. The real form uses `kind:"real"` and a descriptive label, with no generator seed. Metadata is validated, immutable and included in the content hash. Existing snapshots without this optional field retain their original hash convention; the API labels them as configured real snapshots. Source metadata is a producer declaration, not cryptographic authentication.
+
+`RADAR_DATA_MODE=mock` explicitly selects the seeded generator. It produces only observations through the last completed publication cutoff and passes exactly the same snapshot validation; analytics/backtests never receive hardcoded display scores. The generated series all carry MOCK source labels. Every market/analytics/backtest/studies/health response and UI export preserves the mock kind and seed. A configured real source cannot silently switch to mock inputs on failure. The mock generator preserves quote/total-return separation, coherent FX crosses and the compounded five-year-forward inflation relationship, but its observations are not historical market data.
 
 ## JSON envelope
 
@@ -89,4 +99,4 @@ The market service uses the last completed XNYS session with a conservative 16:3
 
 Correlations join identical consecutive exchange-session **start and end dates** within the last 20 completed sessions, requiring at least 15 common observations and nonzero variance. Missing intermediate prices cannot become a one-day return across a gap. Daily z-score/percentile use the current total return against 60–260 prior daily returns; percentile uses midrank ties. Curve spreads join a common observation date. Optional panels contain only supplied/derived data; missing views are explicitly unavailable.
 
-Risk-bias direction and score remain unavailable pending model review. The UI may show actual SPY momentum, VIX and credit-spread observations, but the legacy placeholder stress formula has no approved interpretation or calibration. The publication path does not invent a replacement investment policy.
+The basic `/api/market` endpoint supplies observations. `/api/analytics` supplies documented multi-horizon risk and regime research rules using actual inputs. These rules replace the old placeholder formula as an explicit, versioned implementation; their strength is not a forecast probability, and empirical model validation remains outstanding.

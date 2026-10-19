@@ -17,7 +17,7 @@ from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import exchange_calendars
@@ -155,6 +155,28 @@ class Series(BaseModel):
 		return self
 
 
+class DatasetSource(BaseModel):
+	"""Explicit origin of values; mock status is part of immutable content identity."""
+
+	model_config = ConfigDict(extra="forbid", frozen=True)
+	kind: Literal["real", "mock"]
+	label: str = Field(min_length=1, max_length=160)
+	seed: int | None = Field(default=None, strict=True, ge=0, le=2**32 - 1)
+
+	@field_validator("label")
+	@classmethod
+	def printable_label(cls, value: str) -> str:
+		if value != value.strip() or any(ord(char) < 32 for char in value):
+			raise ValueError("Source label must be printable without outer whitespace")
+		return value
+
+	@model_validator(mode="after")
+	def mock_seed_only(self) -> DatasetSource:
+		if self.kind == "real" and self.seed is not None:
+			raise ValueError("A generator seed applies only to mock inputs")
+		return self
+
+
 def dataset_content_id(payload: Mapping[str, Any] | Dataset) -> str:
 	"""Hash normalized financial content, excluding the producer-supplied identity.
 
@@ -162,7 +184,9 @@ def dataset_content_id(payload: Mapping[str, Any] | Dataset) -> str:
 	identical validated content stable across harmless JSON formatting differences.
 	"""
 	if isinstance(payload, Dataset):
-		content = payload.model_dump(mode="json", exclude={"dataset_id"})
+		content = payload.model_dump(mode="json", exclude={"dataset_id", "source"})
+		if payload.source is not None:
+			content["source"] = payload.source.model_dump(mode="json")
 	else:
 		content = {
 			"schema_version": payload.get("schema_version", 1),
@@ -178,6 +202,10 @@ def dataset_content_id(payload: Mapping[str, Any] | Dataset) -> str:
 				for key, value in payload["series"].items()
 			},
 		}
+		if payload.get("source") is not None:
+			content["source"] = DatasetSource.model_validate(payload["source"]).model_dump(
+				mode="json"
+			)
 	encoded = json.dumps(content, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 	return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
@@ -192,6 +220,7 @@ class Dataset(BaseModel):
 	as_of: date
 	calendar: tuple[date, ...] = Field(min_length=1, max_length=20_000)
 	series: Mapping[str, Series]
+	source: DatasetSource | None = None
 
 	_generated = field_validator("generated_at", mode="before")(_aware_datetime)
 	_as_of = field_validator("as_of", mode="before")(_strict_date)

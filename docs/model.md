@@ -1,4 +1,4 @@
-# Financial model v5
+# Financial model v5.1
 
 Canonical implementation: `radar/engine.py`. Machine-readable contract: `engine-spec.json`. Tests verify the specification's version, coefficient matrix and rank weights against the implementation. There is one engine for individual and comparison runs.
 
@@ -16,19 +16,19 @@ The snapshot supplies an exchange calendar. Dataset validation independently com
 
 ## Point-in-time decisions and evaluation dates
 
-1. Each signal decision occurs at 23:59:59 America/New_York on a calendar month-end. Thus a Friday close followed by a weekend month-end can use information actually available through that Sunday cutoff.
+1. Each signal decision occurs at 23:59:59 America/New_York on a Friday, calendar month-end or calendar quarter-end, according to the selected schedule. Thus a Friday close followed by a weekend month-end can use information actually available through that Sunday cutoff.
 2. Monthly macro values select the latest observation date at or before the cutoff, then the latest version available by that cutoff. Values older than ten calendar days are unavailable. Each historical normalization snapshot is frozen at its own historical month-end cutoff, so later revisions do not rewrite the training history.
-3. Six-month momentum uses the last exchange-session index observations in the current month and the month six months earlier, with versions available at the decision cutoff. All ETF histories must also provide a same-day available version for daily valuation, before 23:59:59 New York time.
+3. Six-month momentum uses the last exchange-session index observations in the current month and the month six months earlier for monthly/quarterly schedules. Weekly momentum uses the last session at or before the Friday decision and the same calendar date six months earlier (clamped to a valid date), with versions available at the decision cutoff. All ETF histories must also provide a same-day available version for daily valuation, before 23:59:59 New York time.
 4. The target portfolio executes at the **next exchange session close**. It cannot earn a price movement from the decision close to its own initial fill. Execution uses that session's total-return-index mark as an idealized close fill.
-5. One completed performance cycle runs from this execution close to the following month's execution close. Monthly decisions are regular; holding cycles have their actual calendar-day lengths. An unfinished final cycle is excluded. No monthly return is manufactured from a partial month.
-6. `start` selects the first scheduled execution on or after the requested date. It does not truncate the normalization or momentum history. A mid-month request therefore starts at the next scheduled monthly execution, disclosed in `first_execution`. `end` bounds available execution endpoints, and is clamped to the snapshot's `as_of`; all actual dates remain in the response. Future request dates and dates before 2018-06-19 are invalid.
+5. One completed performance cycle runs from this execution close to the following scheduled execution close. Friday/weekly, month-end/monthly and quarter-end/quarterly decisions are regular; holding cycles have their actual calendar-day lengths. An unfinished final cycle is excluded. No complete-cycle return is manufactured from a partial cycle.
+6. `start` selects the first scheduled execution on or after the requested date. It does not truncate the normalization or momentum history. A request between scheduled executions therefore starts at the next selected-frequency execution, disclosed in `first_execution`. `end` bounds available execution endpoints, and is clamped to the snapshot's `as_of`; all actual dates remain in the response. Future request dates and dates before 2018-06-19 are invalid.
 7. At least twelve consecutive pre-decision macro snapshots are required. The window expands backward to a maximum of sixty only through contiguous complete older snapshots; a missing optional older month stops that expansion. The actual initial window length and warm-up start are disclosed. Missing any of the mandatory twelve or any evaluated decision is an error. Momentum independently requires six calendar months. Insufficient warm-up is an error, never an automatic later starting point. At least one complete evaluation cycle is required; volatility and Sharpe require at least two.
 
 `period` publishes requested dates, warm-up start, first decision, first execution, first complete return, last complete return, completed cycle count, source availability and whether a trailing partial interval was excluded. Comparison uses the same prepared history and decisions for every strategy. A ruined strategy has its own earlier terminal date.
 
 ## Preserved legacy scoring
 
-For each macro factor, compute the current value's sample z-score against the preceding 12–60 monthly snapshots. Divide by two and clip to [-1, 1]. A genuinely constant normalization window yields a neutral zero state. The five states are real ten-year yield (`rates`), ten-minus-two-year nominal yield (`curve`), ten-year breakeven (`inflation`), VIX (`vol`) and high-yield option-adjusted spread (`credit`).
+For each macro factor, compute the current value's sample z-score against the preceding 12–60 monthly snapshots strictly before the decision's calendar month. Weekly decisions use current Friday inputs but never train on the future end of that month. Divide by two and clip to [-1, 1]. A genuinely constant normalization window yields a neutral zero state. The five states are real ten-year yield (`rates`), ten-minus-two-year nominal yield (`curve`), ten-year breakeven (`inflation`), VIX (`vol`) and high-yield option-adjusted spread (`credit`).
 
 For a sector with exposure coefficients `(r, i, v, c, q)`:
 
@@ -53,7 +53,7 @@ Preserved signs have consequences: with real-yield state +1 and all other states
 | `longonly3` | +1.00 / +0.65 / +0.45 best-first | 2.10 / 2.10 |
 | `compare` | Run all three concrete modes above | Separate results |
 
-Ranked short conviction is explicitly worst-first: rank11 gets -50%, rank10 -25%, rank9 -25%. Long-only is leveraged 210% exposure, as requested by the original latest strategy definition. There is no configurable Top-N or unsupported rebalance-frequency control.
+Ranked short conviction is explicitly worst-first: rank11 gets -50%, rank10 -25%, rank9 -25%. Long-only is leveraged 210% exposure, as requested by the original latest strategy definition. The stable API id `ranked3` accepts `top_n` 1–5, default 3. N=1 allocates 100% to the top and -100% to the bottom. For N=2–5, the highest-conviction rank receives 50% and the remaining ranks share the other 50% equally on each leg; worst short ranks come first. Long and short baskets never overlap in the eleven-sector universe. Extreme and leveraged long-only exposures remain fixed regardless of `top_n`. All modes accept weekly, monthly and quarterly schedules, and comparison applies the same selected schedule to each mode.
 
 ## Portfolio accounting
 
@@ -86,14 +86,42 @@ A terminal partial cycle is retained as an explicitly incomplete holdings row an
 
 - **Total return:** final NAV / initial NAV - 1, including entry, all intervening costs and final liquidation.
 - **CAGR:** `(final_NAV / initial_NAV) ** (365.25 / elapsed_calendar_days) - 1`. Insufficient/terminal numerical cases are explicitly unavailable. Calendar duration is never inferred from a count of retained rows.
-- **Annualized volatility:** sample standard deviation of completed cycle net returns times sqrt(12).
-- **Sharpe:** arithmetic mean of cycle excess returns divided by their sample standard deviation, times sqrt(12). Cash reference is the interval-compounded available DFF ACT/365 return over each identical holding cycle. Reference cash is for the metric; the trading strategy's collateral still earns no rebate. Zero excess-return variance gives null with a reason.
-- **Monthly drawdown:** minimum monthly sampled NAV / running sampled peak - 1, including the initial NAV and any terminal insolvency point. The label explicitly says monthly; it does not claim daily maximum drawdown or intraday margin survival.
+- **Annualized volatility:** sample standard deviation of completed cycle net returns times sqrt(52), sqrt(12) or sqrt(4) for weekly, monthly or quarterly cycles respectively.
+- **Sharpe:** arithmetic mean of cycle excess returns divided by their sample standard deviation, times sqrt(52), sqrt(12) or sqrt(4) for weekly, monthly or quarterly cycles respectively. Cash reference is the interval-compounded available DFF ACT/365 return over each identical holding cycle. Reference cash is for the metric; the trading strategy's collateral still earns no rebate. Zero excess-return variance gives null with a reason.
+- **Daily drawdown:** minimum daily marked NAV / running daily peak - 1, including entry, rebalance and final liquidation costs and terminal insolvency. `max_drawdown` and `max_drawdown_daily` use this full path. The compatibility field `max_drawdown_monthly` is recomputed from the last daily mark in each calendar month, including partial boundary-month endpoints. Neither measure models intraday margin survival.
 - **Hit rate:** proportion of completed cycles whose net strategy return exceeds matching SPY total return. This is not a probability of future outperformance.
 - **Annualized turnover:** sum of one-way trade turnovers, including entry and exit, divided by actual elapsed years. Each trade turnover uses that trade's pre-trade NAV.
 
-Monthly volatility and Sharpe assume monthly cycle scaling even though calendar lengths differ. Short samples can produce unstable annualized estimates. Every null metric has a machine-readable reason. The historical exposure and financing assumptions need domain review and out-of-sample validation; tests establish implementation behavior, not market efficacy.
+Volatility and Sharpe use the selected schedule's conventional 52/12/4 cycle scaling even though actual calendar lengths differ. Short samples can produce unstable annualized estimates. Every null metric has a machine-readable reason. The historical exposure and financing assumptions need domain review and out-of-sample validation; tests establish implementation behavior, not market efficacy.
 
 ## Independent acceptance examples
 
 `tests/test_engine.py` uses synthetic histories clearly confined to tests and actual exchange sessions. Hand-derived cases cover: opening 400% gross costs 40bps at10bps; unchanged longs with a changed 200% short trade400%; rank-weight swaps; drift from +200/-200 to +220/-200 with NAV120 trades60 on rebalance; a pre-fill price jump earns nothing; later macro revisions cannot rewrite a prior decision; missing daily dates and whole calendar months block; 32 calendar days accrue32/365 funding; alternating +20/-20 returns have zero zero-cash Sharpe despite negative CAGR; and a 60% long-asset fall at2x terminates the portfolio before a later recovery.
+
+
+## Calendar-year, benchmark and rotation research
+
+Each result includes complete SPY benchmark statistics over precisely the strategy's actual evaluation dates: total return, elapsed-time CAGR, frequency-scaled volatility and cash-excess Sharpe, daily and calendar-month drawdown, positive-period rate and zero turnover. The strategy hit rate is *outperformance of SPY*; the benchmark hit rate is *positive SPY periods*. The API includes `hit_rate_basis` so these are not confused. A strategy that terminates early also truncates its benchmark valuation to that date; completed-cycle volatility still excludes an incomplete terminal cycle.
+
+`annual_returns` is calculated from actual daily marked NAV, not by assigning whole monthly cycles to their end year. Each calendar year compounds from the last mark in the preceding year; the first observed year starts from initial pre-fee NAV100. Initial and unfinished final years have `partial: true`. The excess column is the arithmetic difference between the two same-year total returns. Multi-year periods do not infer calendar annual returns from CAGR.
+
+`rolling_excess` is trailing calendar-year strategy total return minus SPY total return, using the last available exchange session at or before the calendar-year lookback date (Feb29 maps to Feb28). No value is published before a full trailing year exists. It is an arithmetic excess return, not a relative-wealth ratio. `drawdown_curve` is derived from daily marks. Daily and rolling charts publish at most400 points using equal time-order buckets that preserve each series' local minima and maxima plus the first/last points; all numerical statistics and annual returns still use every daily mark. The response discloses chart sampling. Equity curves remain one point per completed cycle plus a terminal insolvency point.
+
+Rotation diagnostics use executed positions and contemporaneous rankings:
+
+- `rank_persistence`: mean Spearman correlation of successive full eleven-sector ranks. The model's deterministic alphabetical tie-break applies; this measures its ranking output, not evidence of predictive skill.
+- `top_retention`: fraction of the previous long basket retained on the next rebalance, averaged across transitions.
+- `average_holding_days`: mean calendar duration of a continuous signed-position spell. A long-to-short change ends one spell and begins another; a weight change that keeps the same side does not. Entry/exit boundaries censor observed spells, so this is observed duration rather than an unbiased survival estimate.
+- `average_top_return`, `average_bottom_return` and `average_top_bottom_spread`: arithmetic mean top-sector, bottom-sector and top-minus-bottom total returns across complete cycles. These are unlevered returns before strategy fees; the response identifies `ranking_return_frequency` as weekly/monthly/quarterly, and incomplete terminal cycles are excluded.
+- `top_beats_bottom_rate`: proportion of complete cycles in which the highest-scoring sector's unlevered total return exceeded the lowest-scoring sector's return, on actual execution dates.
+- `positive_net_spread_rate`: proportion of complete market-neutral strategy cycles with positive net returns after all modeled costs. It is unavailable for the long-only strategy because that strategy does not implement a long/short spread.
+
+Realized sector attribution accumulates actual signed dollar PnL divided by initial NAV100. Sector contributions minus actual trading/funding/borrow costs reconcile final net return; an explicitly reported insolvency-cap residual accounts for clipping negative equity to zero. These are contributions to return, not unlevered security returns. Separate `score_attribution` averages the contribution of each model term to the long and short baskets' scores, normalized to unit gross per leg and excluding the base50. Those values are *score points*, never causal realized-return attribution. The underlying coefficient assumptions remain unvalidated.
+
+## Bounded robustness, cost sensitivity and regime studies
+
+`radar/studies.py` prepares the same immutable history once per schedule and evaluates a fixed nine-cell grid: ranked Top1/3/5 with weekly/monthly/quarterly schedules. Each cell reports its own actual first/last execution dates; schedules can have different completed periods. Unavailable short-period variants remain explicit error rows, never substituted results. The selected-frequency run must itself be valid. Four further scenarios apply one-way costs0/10/25/50bps with all funding and borrow assumptions unchanged. Cost sensitivity uses the selected strategy, or the selected ranked basket when `mode=compare`. It does not optimize a winner or claim that in-sample parameter search validates the model.
+
+Regime-conditioned hit rates assign each complete cycle using only its decision-time normalized inputs. Precedence is: **stress** if volatility or credit state>=0.5; otherwise **inflation** if inflation state>=0.5; otherwise **low_stress** if both volatility and credit states<0; otherwise **balanced**. These transparent research categories are not calibrated predictions. Each group reports sample count, proportion of net returns exceeding SPY, arithmetic average net return and average excess return. Small sample counts remain visible, and partial/terminal cycles are excluded.
+
+The expanded tests independently check frequency timing and annualization, Top-N disjoint weights, calendar-year boundaries, daily drawdown troughs, annual rolling excess, future-month exclusion, attribution reconciliation, signed-position durations, regime thresholds, true cost drag, bounded chart extrema and unavailable grid cells. They establish implementation behavior on synthetic observations, not market efficacy.

@@ -3,6 +3,11 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const modes = ['extreme1', 'ranked3', 'longonly3'];
+const mockSource = { kind: 'mock', label: 'Synthetic test inputs', seed: 8042 };
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/analytics', (route) => route.fulfill({ json: { ok: true, dataset_id: `sha256:${'b'.repeat(64)}`, as_of: '2026-10-16', model_version: 'test-analytics', sections: {} } }));
+});
 
 function marketFixture(overrides = {}) {
   return {
@@ -19,7 +24,7 @@ function marketFixture(overrides = {}) {
 
 function runFixture(url, datasetId = `sha256:${'a'.repeat(64)}`, cagr = .064) {
   const query = new URL(url).searchParams;
-  const params = { start: query.get('start'), end: query.get('end'), mode: query.get('mode'), cost_bps: Number(query.get('cost_bps')), short_borrow_bps: Number(query.get('short_borrow_bps')), rebalance: query.get('rebalance') };
+  const params = { start: query.get('start'), end: query.get('end'), mode: query.get('mode'), cost_bps: Number(query.get('cost_bps')), short_borrow_bps: Number(query.get('short_borrow_bps')), rebalance: query.get('rebalance'), top_n: Number(query.get('top_n')) };
   const results = {};
   for (const mode of params.mode === 'compare' ? modes : [params.mode]) {
     results[mode] = {
@@ -201,7 +206,7 @@ test('missing metrics stay unavailable and provider strings remain inert text', 
   await expect(page.locator('[data-metric="sharpe"] .reason')).toHaveText('zero_excess_variance');
   const axisTicks = await page.locator('#run-results svg text').allTextContents();
   expect(axisTicks.slice(0, 5)).toEqual(['98.50', '99.25', '100.00', '100.75', '101.50']);
-  await expect(page.locator('.bias-card .tag')).toHaveText('MODEL REVIEW');
+  await expect(page.locator('.bias-card .tag')).toHaveText('RESEARCH RULES');
   expect(await page.evaluate(() => window.injected)).toBeUndefined();
   await expect(page.locator('img')).toHaveCount(0);
 });
@@ -241,4 +246,158 @@ test('mobile navigation and results remain within the viewport', async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   await expect(page.locator('#run-results svg')).toHaveCount(1);
+});
+
+function analyticsFixture() {
+  const sections = {};
+  for (const key of ['risk', 'changes', 'anomalies', 'correlations', 'rates', 'volatility', 'fx', 'sectors', 'playbook', 'analogues']) {
+    sections[key] = {
+      title: `${key} analysis`, status: 'ready', summary: `Computed ${key} summary from dated inputs.`,
+      metrics: [{ label: 'Observed value', value: 5, unit: 'percent' }, { label: 'Classification', value: 'Constructive', unit: 'text' }],
+      charts: [{ title: `${key} curve`, unit: 'percent', series: [{ label: 'Observed', points: [{ date: '2Y', value: 4.25 }, { date: '10Y', value: 4.5 }] }] }],
+      tables: [{ title: `${key} details`, columns: ['Observation', 'Value'], rows: [['Measured', .25], ['Missing', null]] }],
+    };
+  }
+  return { ok: true, status: 'ready', dataset_id: `sha256:${'b'.repeat(64)}`, as_of: '2026-10-16', model_version: 'test-analytics', source: mockSource, sections };
+}
+
+test('all analytical families render calculations, categorical charts and explicit mock provenance', async ({ page }) => {
+  await mockMarket(page, marketFixture({ source: mockSource }));
+  const analytics = analyticsFixture();
+  analytics.sections.risk.metrics = [{ label: '1D risk score', value: 25, unit: 'score' }, { label: '1W risk score', value: -15, unit: 'score' }, { label: '1M risk score', value: 10, unit: 'score' }];
+  await page.route('**/api/analytics', (route) => route.fulfill({ json: analytics }));
+  await page.goto('/');
+  await expect(page.locator('#mock-notice')).toBeVisible();
+  await expect(page.locator('#source-indicator')).toContainText('MOCK DATA');
+  await expect(page.locator('#mock-description')).toContainText('Seed 8042');
+  await expect(page.locator('[data-analysis]')).toHaveCount(10);
+  await expect(page.locator('[data-analysis="rates"]')).toContainText('5.00%');
+  await expect(page.locator('[data-analysis="rates"]')).not.toContainText('500.00%');
+  await expect(page.locator('#risk-factors')).toContainText('-15.00');
+  await page.locator('[data-analysis="rates"] summary').click();
+  await expect(page.locator('[data-analysis="rates"] svg')).toBeVisible();
+  await expect(page.locator('[data-analysis="rates"] svg')).toContainText('2Y');
+  await expect(page.locator('[data-analysis="rates"] svg circle')).toHaveCount(2);
+  await expect(page.locator('[data-analysis="rates"] table')).toContainText('—');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download all analytics' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('radar-analytics-2026-10-16.json');
+  const stream = await download.createReadStream();
+  let content = '';
+  for await (const chunk of stream) content += chunk;
+  expect(JSON.parse(content).source).toEqual(mockSource);
+});
+
+test('mismatched analytical snapshots are withheld without discarding valid market observations', async ({ page }) => {
+  await mockMarket(page);
+  const fixture = analyticsFixture();
+  fixture.dataset_id = 'different-dataset';
+  await page.route('**/api/analytics', (route) => route.fulfill({ json: fixture }));
+  await page.goto('/');
+  await expect(page.locator('#analytics-error')).toContainText('did not match');
+  await expect(page.locator('#assets-table')).toContainText('620.25');
+  await expect(page.locator('[data-analysis]')).toHaveCount(0);
+});
+
+test('frequency and basket controls publish full annual, benchmark and attribution research', async ({ page }) => {
+  await mockMarket(page);
+  const requests = [];
+  await page.route('**/api/backtest?**', (route) => {
+    requests.push(route.request().url());
+    const fixture = runFixture(route.request().url());
+    fixture.source = mockSource;
+    for (const result of Object.values(fixture.results)) {
+      result.benchmark_stats = { ...result.stats, cagr: .04 };
+      result.annual_returns = [{ year: 2020, strategy: .08, benchmark: .05, excess: .03, partial: true, start: '2020-02-03', end: '2020-12-31' }];
+      result.drawdown_curve = [{ date: '2020-02-03', strategy: 0, benchmark: 0 }, { date: '2020-03-02', strategy: -.04, benchmark: -.02 }];
+      result.rolling_excess = [{ date: '2021-02-01', value: .03 }];
+      result.diagnostics = { rank_persistence: .7, top_retention: .6, average_holding_days: 40, top_beats_bottom_rate: .65, positive_net_spread_rate: .55, average_top_return: .024, average_bottom_return: -.006, average_top_bottom_spread: .03, attribution: [{ symbol: 'XLK', long_contribution: .03, short_contribution: -.01, total_contribution: .02 }], score_attribution: [{ factor: 'rates', average_long_score_points: 3, average_short_score_points: -2 }], regime_performance: [{ regime: 'Constructive', periods: 12, hit_rate: .6, average_return: .01, average_excess: .005 }] };
+    }
+    return route.fulfill({ json: fixture });
+  });
+  await page.goto('/');
+  await expect(page.locator('#top-n')).toBeDisabled();
+  await page.locator('#mode').selectOption('ranked3');
+  await expect(page.locator('#top-n')).toBeEnabled();
+  await page.locator('#top-n').selectOption('5');
+  await page.locator('#rebalance').selectOption('weekly');
+  await run(page);
+  expect(new URL(requests[0]).searchParams.get('top_n')).toBe('5');
+  expect(new URL(requests[0]).searchParams.get('rebalance')).toBe('weekly');
+  await expect(page.locator('.run-provenance')).toContainText('MOCK DATA');
+  await expect(page.locator('#run-results')).toContainText('Annual returns & excess performance');
+  await expect(page.locator('#run-results')).toContainText('partial year');
+  await expect(page.locator('#run-results svg')).toHaveCount(4);
+  await page.getByText('Ranking stability & rotation diagnostics', { exact: true }).click();
+  await expect(page.locator('#run-results')).toContainText('65.00%');
+  const ranking = page.locator('details').filter({ has: page.getByText('Ranking stability & rotation diagnostics', { exact: true }) });
+  await expect(ranking.locator('.metric').filter({ hasText: 'Top-ranked sector · average return per cycle' }).locator('.value')).toHaveText('2.40%');
+  await expect(ranking.locator('.metric').filter({ hasText: 'Bottom-ranked sector · average return per cycle' }).locator('.value')).toHaveText('-0.60%');
+  await expect(ranking.locator('.metric').filter({ hasText: 'Top minus bottom · average spread per cycle' }).locator('.value')).toHaveText('3.00%');
+  await expect(ranking).not.toContainText('monthly');
+  await page.getByText('Factor score attribution', { exact: true }).click();
+  await expect(page.locator('#run-results')).toContainText('not realized investment returns');
+  await page.locator('#rebalance').selectOption('quarterly');
+  await expect(page.locator('#run-results')).toBeEmpty();
+});
+
+test('studies use matched assumptions, lock controls and clear errors on invalidation', async ({ page }) => {
+  await mockMarket(page);
+  let calls = 0;
+  let release;
+  await page.route('**/api/studies?**', async (route) => {
+    calls += 1;
+    if (calls > 1) return route.fulfill({ status: 429, json: { ok: false, error: { message: 'Calculation capacity is busy.', code: 'busy' } } });
+    await new Promise((resolve) => { release = resolve; });
+    const base = runFixture(route.request().url());
+    return route.fulfill({ json: { ok: true, source: mockSource, dataset_id: base.dataset_id, model_version: base.model_version, params: base.params, robustness: [{ top_n: 3, rebalance: 'monthly', stats: base.results.extreme1.stats }], cost_sensitivity: [{ cost_bps: 0, stats: base.results.extreme1.stats }], regime_performance: [], methodology: ['Point-in-time decisions; matching dataset.'] } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Run studies' }).click();
+  await expect(page.locator('#study-status')).toContainText('Calculating');
+  await expect(page.locator('#mode')).toBeDisabled();
+  await expect(page.locator('#run-backtest')).toBeDisabled();
+  await expect.poll(() => Boolean(release)).toBe(true);
+  release();
+  await expect(page.locator('#study-status')).toContainText('Studies complete');
+  await expect(page.locator('#study-results')).toContainText('MOCK DATA');
+  await expect(page.locator('#study-results')).toContainText('0.0 bps');
+  await page.getByRole('button', { name: 'Run studies' }).click();
+  await expect(page.locator('#study-error')).toContainText('Calculation capacity is busy');
+  await expect(page.locator('#study-results')).toBeEmpty();
+  await page.locator('#cost-bps').fill('0');
+  await expect(page.locator('#study-error')).toBeHidden();
+  await expect(page.locator('#study-results')).toBeEmpty();
+});
+
+test('a superseded study cannot publish after a parameter change', async ({ page }) => {
+  await mockMarket(page);
+  await page.addInitScript(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, options) => {
+      if (String(input).startsWith('/api/studies')) {
+        const { signal, ...uncancellable } = options || {};
+        return nativeFetch(input, uncancellable);
+      }
+      return nativeFetch(input, options);
+    };
+  });
+  let release;
+  await page.route('**/api/studies?**', async (route) => {
+    await new Promise((resolve) => { release = resolve; });
+    const base = runFixture(route.request().url(), 'obsolete-study');
+    return route.fulfill({ json: { ok: true, source: mockSource, dataset_id: base.dataset_id, model_version: base.model_version, params: base.params, robustness: [], cost_sensitivity: [] } });
+  });
+  await page.goto('/');
+  await page.locator('#run-studies').click();
+  await expect.poll(() => Boolean(release)).toBe(true);
+  await page.locator('#rebalance').evaluate((node) => { node.value = 'quarterly'; node.dispatchEvent(new Event('change', { bubbles: true })); });
+  const completion = page.waitForResponse((response) => response.url().includes('/api/studies?'));
+  release();
+  await (await completion).finished();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  await expect(page.locator('#study-results')).toBeEmpty();
+  await expect(page.locator('#study-status')).toContainText('Parameters changed');
+  await expect(page.locator('#run-studies')).toBeEnabled();
 });

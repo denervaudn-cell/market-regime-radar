@@ -1,8 +1,38 @@
 # PLAN: Market Regime Radar revamp
 
-Started: 2026-10-19. Status: implementation and local verification complete.
+Started: 2026-10-19. Status: V5 core and full V4 feature restoration complete; locally verified.
 
-## Scope and recovery
+## Active phase: complete V4 analytical coverage (2026-10-19)
+
+User explicitly requested every missing V4 feature, preservation of the new UI, real calculations and mock inputs for now. This supersedes the earlier decision to leave research panels unavailable. Mock data must be explicit, reproducible, identified in every API result/export and visually labelled; it must never silently replace a failed real source.
+
+- [x] Compare original V4 source and release history against current functionality; identify computed regressions and former demo-only panels.
+- [x] Define implementation ownership and integration contracts below before editing application code.
+- [x] Restore annual/benchmark statistics, rotation and ranking diagnostics, drawdown/rolling return series and attribution.
+- [x] Implement weekly/monthly/quarterly schedules, ranked Top-N, bounded robustness/cost-sensitivity/regime studies.
+- [x] Implement full rates, volatility, FX and correlation analytics using dated observations.
+- [x] Implement current sector/factor/style views, multi-horizon risk/divergence, anomalies/changes, historical matches and rule-based narratives/playbook.
+- [x] Build deterministic mock snapshot generator and explicit mock source mode using the production snapshot contract.
+- [x] Extend the new UI to display all restored calculations, provenance and mock labels.
+- [x] Add meaningful calculation, boundary, API and browser regression checks; verify real Python API with the mock feed.
+- [x] Update feature-parity matrix, formulas, data requirements, runbook and final verification evidence; commit locally.
+
+### Final restoration verification
+
+2026-10-19: 182 Python tests, 14 browser tests and 3 Node compatibility tests passed. Ruff lint/format, JavaScript syntax, dependency audits and diff checks passed. Actual Python API browser smoke exercised all ten analytical sections, weekly Top-5 comparison, quarterly Top-2, all thirteen study scenarios, JSON exports, desktop and mobile layouts. Independent review fixed cross-date volatility combinations, UTC/New York observation retention, short/flat-history readiness and a work-budget shutdown race. Empirical model validation and the real shared producer remain external; functional panels no longer depend on hardcoded demo outputs.
+
+### Integration contracts and ownership
+
+- Financial agent owns `radar/engine.py`, `radar/studies.py`, engine/studies tests, `docs/model.md`, `engine-spec.json`. Extend existing response additively. `run_studies(dataset, params)` is a separate bounded request. Weekly/quarterly still use month-end-trained macro normalization and the same next-session execution discipline; report frequency-correct statistics. Ranked basket accepts `top_n` 1–5, with half on rank 1 and equal remainder (one rank gets 100%). Fixed extreme and long-only exposures stay explicit.
+- Market analytics agent owns `radar/analytics.py`, analytics tests, `docs/analytics.md`. `market_analytics(dataset, now=None)` returns `{ok,status,dataset_id,as_of,model_version,sections}`. Each section has `{status,title,summary,metrics:[{label,value,unit}],tables:[{title,columns,rows}],charts:[{title,unit,series:[{label,points:[{date,value}]}]}]}`. Numeric missingness is null with explanation. Sections: `risk`, `changes`, `anomalies`, `correlations`, `rates`, `volatility`, `fx`, `sectors`, `playbook`, `analogues`.
+- Frontend agent owns `index.html`, `static/`, `tests/ui.spec.js`. Preserve styling, add section navigation/progressive disclosure and `/api/analytics`, `/api/studies`. Existing `/api/market` remains the observation overview. Generic section renderer makes analytical results inspectable without hardcoded financial values.
+- Root owns API, mock input generator/mode, snapshot provenance extension, integration tests, docs outside agent ownership and final QA. `/api/analytics` and `/api/studies` share bounded work/cache; source provenance `{kind:mock|real,label,seed?}` travels on all responses. No live source is overwritten. Mock mode selected explicitly with `RADAR_DATA_MODE=mock`.
+
+### Completion standard
+
+Every historical feature family must have implemented calculations and a visible result in the mock preview. Composite regimes/conviction are documented deterministic research rules, never investment probabilities; historical forward outcomes exclude incomplete windows and noncausal feature selection. Producer integration and empirical validation remain external, but are not reasons to omit the requested research implementations.
+
+## Original core phase: scope and recovery (completed)
 
 Implement the 23 findings in IMPROVEMENTS.md against a future extended data_mesh distribution contract. Do not fabricate missing market data or change other repositories. Preserve the supplied archive. Application deployment and an investment model's empirical validation are separate from implementing and testing the code.
 
@@ -38,7 +68,7 @@ Implement the 23 findings in IMPROVEMENTS.md against a future extended data_mesh
 
 The real data_mesh producer/backfill, empirical investment-model validation and production deployment/monitoring remain external prerequisites. No production deployment or shared-data migration was performed. Finding 18's code consistency and disclosure are implemented; its economic validation is unresolved.
 
-## Decisions
+## Original core-phase decisions (superseded where noted above)
 
 - data_mesh remains the source boundary; its missing upstream series and a production deployment are not assumed complete.
 - Synthetic datasets belong only to tests or an explicitly labelled local preview, never an automatic production fallback.

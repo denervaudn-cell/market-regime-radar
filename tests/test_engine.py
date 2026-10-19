@@ -88,7 +88,12 @@ def test_zero_costs_and_zero_macro_rates_are_not_defaults(flat):
 		{"start": 20200101},
 		{"start": "2020-02-30"},
 		{"start": "2020-01-01T00:00:00"},
-		{"rebalance": "weekly"},
+		{"rebalance": "daily"},
+		{"top_n": 0},
+		{"top_n": 6},
+		{"top_n": True},
+		{"top_n": 3.0},
+		{"top_n": "3"},
 	],
 )
 def test_invalid_parameters_fail_before_engine(override):
@@ -376,3 +381,175 @@ def test_missing_mandatory_warmup_month_blocks_instead_of_compressing():
 	with pytest.raises(DataError) as error:
 		run_backtest(dataset_from_payload(payload), params())
 	assert error.value.code == "missing_macro_history"
+
+
+@pytest.mark.parametrize("top_n", [1, 2, 3, 4, 5])
+def test_ranked_top_n_keeps_disjoint_unit_gross_legs(top_n):
+	weights = target_weights("ranked3", list(SECTORS), top_n)
+	assert len(weights) == 2 * top_n
+	assert sum(max(value, 0) for value in weights.values()) == pytest.approx(1)
+	assert sum(min(value, 0) for value in weights.values()) == pytest.approx(-1)
+	assert weights[SECTORS[0]] == (1 if top_n == 1 else 0.5)
+	assert weights[SECTORS[-1]] == (-1 if top_n == 1 else -0.5)
+	assert target_weights("extreme1", list(SECTORS), top_n) == {"XLB": 2, "XLY": -2}
+
+
+@pytest.mark.parametrize(
+	("frequency", "first_decision", "first_execution", "first_return", "scale"),
+	[
+		("weekly", "2020-01-03", "2020-01-06", "2020-01-13", 52),
+		("monthly", "2019-12-31", "2020-01-02", "2020-02-03", 12),
+		("quarterly", "2019-12-31", "2020-01-02", "2020-04-01", 4),
+	],
+)
+def test_schedule_next_session_and_frequency_statistics(
+	flat, frequency, first_decision, first_execution, first_return, scale
+):
+	actual = run_backtest(flat, params(rebalance=frequency, mode="ranked3", top_n=5))
+	assert actual["period"]["first_decision"] == first_decision
+	assert actual["period"]["first_execution"] == first_execution
+	assert actual["period"]["first_return"] == first_return
+	row = actual["results"]["ranked3"]
+	assert row["stats"]["periods_per_year"] == scale
+	assert row["stats"]["return_frequency"] == frequency
+	assert len(row["holdings"][0]["weights"]) == 10
+	assert row["benchmark_stats"]["total_return"] == 0
+
+
+def test_frequency_scaling_is_not_always_monthly():
+	monthly = performance_statistics(
+		[0.1, -0.05, 0.2], [0.01] * 3, [0] * 3, [100, 110, 104.5, 125.4], 90, 1
+	)
+	weekly = performance_statistics(
+		[0.1, -0.05, 0.2], [0.01] * 3, [0] * 3, [100, 110, 104.5, 125.4], 90, 1, periods_per_year=52
+	)
+	assert weekly["sharpe"] / monthly["sharpe"] == pytest.approx(math.sqrt(52 / 12))
+	assert weekly["annualized_volatility"] / monthly["annualized_volatility"] == pytest.approx(
+		math.sqrt(52 / 12)
+	)
+	assert weekly["cagr"] == monthly["cagr"]
+
+
+def test_calendar_year_returns_rolling_excess_and_daily_drawdown_are_actual_marks():
+	from radar.engine import _daily_research
+
+	daily = [
+		{"date": "2019-12-31", "strategy": 100, "benchmark": 100},
+		{"date": "2020-01-02", "strategy": 120, "benchmark": 110},
+		{"date": "2020-01-03", "strategy": 90, "benchmark": 105},
+		{"date": "2020-12-31", "strategy": 121, "benchmark": 120},
+		{"date": "2021-01-04", "strategy": 133.1, "benchmark": 126},
+	]
+	calendar = [date.fromisoformat(row["date"]) for row in daily] + [date(2021, 12, 31)]
+	actual = _daily_research(daily, calendar)
+	year = actual["annual_returns"][1]
+	assert year["strategy"] == pytest.approx(0.21)
+	assert year["benchmark"] == pytest.approx(0.20)
+	assert year["excess"] == pytest.approx(0.01)
+	assert year["partial"] is False
+	assert actual["annual_returns"][0]["partial"] is True
+	assert actual["annual_returns"][-1]["partial"] is True
+	assert min(row["strategy"] for row in actual["drawdown_curve"]) == -0.25
+	assert actual["rolling_excess"][0]["date"] == "2020-12-31"
+	assert actual["rolling_excess"][0]["value"] == pytest.approx(0.01)
+
+
+def test_weekly_decisions_do_not_train_on_future_month_end_macro():
+	payload = fixture_payload()
+	baseline = run_backtest(dataset_from_payload(payload), params(rebalance="weekly"))["results"][
+		"extreme1"
+	]["holdings"][0]
+	for row in payload["series"]["DFII10"]["observations"]:
+		if row["date"] >= "2020-01-15":
+			row["value"] = 50
+	actual = run_backtest(dataset_from_payload(payload), params(rebalance="weekly"))["results"][
+		"extreme1"
+	]["holdings"][0]
+	assert actual["state"] == baseline["state"]
+	assert actual["scores"] == baseline["scores"]
+
+
+def test_realized_attribution_reconciles_after_costs_and_ranking_diagnostics(monkeypatch):
+	payload = fixture_payload()
+	for symbol, value in (("XLB", 110), ("XLY", 95)):
+		for row in payload["series"][f"{symbol}_TR"]["observations"]:
+			if row["date"] >= "2020-01-03":
+				row["value"] = value
+	_fixed_ranking(monkeypatch, [list(SECTORS)])
+	actual = run_backtest(
+		dataset_from_payload(payload),
+		BacktestParams(start="2020-01-01", end="2020-05-15", cost_bps=10, short_borrow_bps=50),
+	)["results"]["extreme1"]
+	diagnostics = actual["diagnostics"]
+	contributions = {row["symbol"]: row for row in diagnostics["attribution"]}
+	assert contributions["XLB"]["long_contribution"] == pytest.approx(0.2)
+	assert contributions["XLY"]["short_contribution"] == pytest.approx(0.1)
+	assert sum(row["total_contribution"] for row in contributions.values()) - sum(
+		diagnostics["cost_contributions"].values()
+	) == pytest.approx(actual["stats"]["total_return"])
+	assert diagnostics["rank_persistence"] == 1
+	assert diagnostics["top_retention"] == 1
+	assert diagnostics["top_beats_bottom_rate"] == 0.25
+	assert diagnostics["average_top_return"] == pytest.approx(0.1 / 4)
+	assert diagnostics["average_bottom_return"] == pytest.approx(-0.05 / 4)
+	assert diagnostics["average_top_bottom_spread"] == pytest.approx(0.15 / 4)
+	assert diagnostics["ranking_return_frequency"] == "monthly"
+	assert diagnostics["positive_net_spread_rate"] == 0.25
+	assert diagnostics["average_holding_days"] == 120
+	assert diagnostics["regime_performance"][0]["periods"] == 4
+
+
+def test_ranking_return_averages_exclude_incomplete_cycles():
+	from radar.engine import _ranking_diagnostics
+
+	rows = []
+	for start, end, top, bottom, complete in (
+		("2020-01-06", "2020-01-13", 0.1, -0.04, True),
+		("2020-01-13", "2020-01-21", -0.02, 0.06, True),
+		("2020-01-21", "2020-01-22", -0.6, 0.7, False),
+	):
+		rows.append(
+			{
+				"execution_date": start,
+				"end_date": end,
+				"top_return": top,
+				"bottom_return": bottom,
+				"complete": complete,
+				"regime": "balanced",
+				"period_return": top - bottom,
+				"benchmark_return": 0,
+				"weights": {"XLB": 1, "XLY": -1},
+				"scores": [{"symbol": symbol} for symbol in SECTORS],
+			}
+		)
+	diagnostics = _ranking_diagnostics(rows)
+	assert diagnostics["average_top_return"] == pytest.approx(0.04)
+	assert diagnostics["average_bottom_return"] == pytest.approx(0.01)
+	assert diagnostics["average_top_bottom_spread"] == pytest.approx(0.03)
+	assert diagnostics["top_beats_bottom_rate"] == 0.5
+
+
+def test_score_components_are_points_and_sum_to_the_preserved_score():
+	from radar.engine import sector_score_components
+
+	state = {"rates": 0.2, "curve": -0.1, "inflation": 0.3, "vol": 0.8, "credit": -0.6}
+	momentum = {symbol: 0.15 for symbol in SECTORS}
+	for row in score_sectors(state, momentum):
+		assert (
+			50 + sum(sector_score_components(state, 0.15, row["symbol"]).values()) == row["score"]
+		)
+
+
+def test_chart_sampling_retains_endpoints_and_extreme_losses():
+	from radar.engine import _sample_chart
+
+	points = [
+		{"date": str(index), "strategy": -(index % 47) / 100, "benchmark": -(index % 53) / 100}
+		for index in range(2000)
+	]
+	points[987]["strategy"] = -0.99
+	actual = _sample_chart(points, ("strategy", "benchmark"))
+	assert len(actual) <= 400
+	assert actual[0] == points[0]
+	assert actual[-1] == points[-1]
+	assert min(row["strategy"] for row in actual) == -0.99

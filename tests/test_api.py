@@ -40,7 +40,9 @@ class Store:
 		"start=2020-01-01&cost_bps=",
 		"start=2020-01-01&short_borrow_bps=-1",
 		"start=2020-01-01&costBps=1&cost_bps=2",
-		"start=2020-01-01&rebalance=weekly",
+		"start=2020-01-01&rebalance=daily",
+		"start=2020-01-01&top_n=6",
+		"start=2020-01-01&top_n=3&topN=2",
 		"start=2020-01-01&end=2019-01-01",
 		"start=2008-01-01",
 		"",
@@ -80,7 +82,7 @@ def test_zero_cost_and_mode_reach_one_engine_and_cache(monkeypatch):
 		assert first.headers["x-request-id"] != second.headers["x-request-id"]
 
 
-@pytest.mark.parametrize("path", ["/api/market", "/api/backtest"])
+@pytest.mark.parametrize("path", ["/api/market", "/api/backtest", "/api/analytics", "/api/studies"])
 def test_method_is_rejected_before_acquisition(path):
 	store = Store()
 	with TestClient(create_app(store)) as client:
@@ -200,6 +202,25 @@ async def test_cancelled_consumer_and_shutdown_drain_owned_workers():
 		await cache.get("again", lambda: None)
 
 
+async def test_shutdown_cannot_admit_a_worker_that_was_waiting_for_capacity():
+	import threading
+
+	gate, called = threading.Event(), []
+	work = WorkBudget(concurrency=1)
+	first = asyncio.create_task(work.run(gate.wait, 2))
+	await asyncio.sleep(0.01)
+	waiting = asyncio.create_task(work.run(lambda: called.append("escaped")))
+	await asyncio.sleep(0.01)
+	draining = asyncio.create_task(work.aclose())
+	await asyncio.sleep(0.01)
+	gate.set()
+	await first
+	await draining
+	with pytest.raises(DataError, match="shutting down"):
+		await waiting
+	assert not called and not work.workers
+
+
 def test_routed_compare_runs_actual_engine_on_one_snapshot():
 	from engine_fixtures import flat_dataset
 
@@ -233,3 +254,87 @@ def test_actual_missing_history_is_named_http_failure():
 		assert response.status_code == 503
 		assert response.json()["error"]["code"] == "missing_series"
 		assert "XLC_TR" in response.json()["error"]["details"]["series"]
+
+
+def test_mock_mode_is_explicit_and_does_not_replace_a_real_source(monkeypatch):
+	from radar.app import configured_store
+	from radar.data import DatasetStore
+	from radar.mock import MockDatasetStore
+
+	for name in (
+		"RADAR_DATA_MODE",
+		"RADAR_DATASET_PATH",
+		"RADAR_DATASET_URL",
+		"RADAR_DATASET_TOKEN",
+		"RADAR_MOCK_SEED",
+	):
+		monkeypatch.delenv(name, raising=False)
+	assert isinstance(configured_store(), DatasetStore)
+	monkeypatch.setenv("RADAR_DATA_MODE", "mock")
+	monkeypatch.setenv("RADAR_MOCK_SEED", "12")
+	store = configured_store()
+	assert isinstance(store, MockDatasetStore) and store.seed == 12
+	monkeypatch.setenv("RADAR_DATASET_PATH", "/private/real-snapshot.json")
+	with pytest.raises(ValueError, match="Unset real"):
+		configured_store()
+	monkeypatch.delenv("RADAR_DATASET_PATH")
+	monkeypatch.setenv("RADAR_MOCK_SEED", "NaN")
+	with pytest.raises(ValueError, match="RADAR_MOCK_SEED"):
+		configured_store()
+	monkeypatch.setenv("RADAR_DATA_MODE", "demo")
+	with pytest.raises(ValueError, match="RADAR_DATA_MODE"):
+		configured_store()
+
+
+@pytest.mark.parametrize(
+	"path",
+	["/api/analytics?source=http://example.invalid", "/api/studies?start=2020-01-01&top_n=8"],
+)
+def test_invalid_research_queries_never_acquire_data(path):
+	store = Store()
+	with TestClient(create_app(store)) as client:
+		assert client.get(path).status_code == 400
+		assert store.calls == 0
+
+
+def test_actual_mock_feed_runs_all_feature_families_through_http():
+	from radar.mock import MockDatasetStore
+
+	with TestClient(create_app(MockDatasetStore(seed=8042))) as client:
+		market = client.get("/api/market")
+		assert market.status_code == 200, market.text
+		identity = market.json()["dataset_id"]
+		analytics = client.get("/api/analytics")
+		assert analytics.status_code == 200, analytics.text
+		assert set(analytics.json()["sections"]) == {
+			"risk",
+			"changes",
+			"anomalies",
+			"correlations",
+			"rates",
+			"volatility",
+			"fx",
+			"sectors",
+			"playbook",
+			"analogues",
+		}
+		assert all(
+			section["status"] == "ready" for section in analytics.json()["sections"].values()
+		)
+		params = "start=2020-01-01&mode=compare&rebalance=weekly&top_n=5"
+		backtest = client.get("/api/backtest?" + params)
+		assert backtest.status_code == 200, backtest.text
+		assert backtest.json()["params"]["rebalance"] == "weekly"
+		assert backtest.json()["params"]["top_n"] == 5
+		basket = backtest.json()["results"]["ranked3"]
+		assert len(basket["holdings"][0]["weights"]) == 10
+		assert basket["annual_returns"] and basket["benchmark_stats"] and basket["drawdown_curve"]
+		studies = client.get("/api/studies?" + params)
+		assert studies.status_code == 200, studies.text
+		assert len(studies.json()["robustness"]) == 9
+		assert len(studies.json()["cost_sensitivity"]) == 4
+		health = client.get("/api/health")
+		for response in (market, analytics, backtest, studies, health):
+			assert response.json()["dataset_id"] == identity
+			assert response.json()["source"]["kind"] == "mock"
+			assert response.json()["source"]["seed"] == 8042

@@ -39,7 +39,7 @@
   const tone = (value) => finite(value) ? value > 0 ? 'positive' : value < 0 ? 'negative' : '' : 'muted';
   const unavailable = (message) => element('p', 'empty-state', message);
   const strategyLabels = {
-    extreme1: 'Extreme conviction', ranked3: 'Ranked three', longonly3: 'Leveraged long only',
+    extreme1: 'Extreme conviction', ranked3: 'Ranked basket', longonly3: 'Leveraged long only',
   };
   const descriptions = {
     extreme1: 'Highest-ranked sector +200%; lowest-ranked sector −200%. Gross exposure 400%.',
@@ -47,11 +47,13 @@
     longonly3: 'Top three sectors at +100%, +65% and +45%. Total long exposure 210%; excess exposure is financed.',
     compare: 'Run all three strategies on the same dataset, dates and cost assumptions. SPY is the common benchmark.',
   };
-  let state = freeze({ market: { phase: 'idle' }, run: { phase: 'idle', params: null, result: null } });
+  let state = freeze({ market: { phase: 'idle' }, run: { phase: 'idle', params: null, result: null }, study: { phase: 'idle' } });
   let marketSequence = 0;
   let runSequence = 0;
+  let studySequence = 0;
   let marketController;
   let runController;
+  let studyController;
   const fileMode = location.protocol === 'file:';
 
   function setState(key, next) {
@@ -88,7 +90,7 @@
 
   function chart(series, title, valueLabel = 'NAV') {
     const valid = series.filter((item) => item.points.length > 0);
-    const points = valid.flatMap((item) => item.points).filter((item) => finite(item.value) && finite(Date.parse(item.date)));
+    const points = valid.flatMap((item) => item.points).filter((item) => finite(item.value) && typeof item.date === 'string');
     if (!points.length) return unavailable('No chart observations available.');
     const ns = 'http://www.w3.org/2000/svg';
     const svgElement = (tag, attrs = {}, content) => {
@@ -98,37 +100,41 @@
       return node;
     };
     const width = 820, height = 280, left = 58, right = 18, top = 22, bottom = 36;
-    const times = points.map((item) => Date.parse(item.date));
+    const isDated = points.every((item) => /^\d{4}-\d{2}-\d{2}/.test(item.date) && finite(Date.parse(item.date)));
+    const categories = [...new Set(valid.flatMap((item) => item.points.map((point) => point.date)))];
+    const position = (value) => isDated ? Date.parse(value) : categories.indexOf(value);
+    const times = points.map((item) => position(item.date));
     const values = points.map((item) => item.value);
     const minTime = Math.min(...times), maxTime = Math.max(...times);
     const minimum = Math.min(...values), maximum = Math.max(...values);
     const margin = Math.max((maximum - minimum) * .1, Math.abs(maximum) * .015, .01);
     const low = minimum - margin, high = maximum + margin;
     const tickDigits = high - low < 10 ? 2 : high - low < 100 ? 1 : 0;
-    const x = (value) => left + (Date.parse(value) - minTime) / (maxTime - minTime || 1) * (width - left - right);
+    const x = (value) => left + (position(value) - minTime) / (maxTime - minTime || 1) * (width - left - right);
     const y = (value) => top + (high - value) / (high - low) * (height - top - bottom);
     const svg = svgElement('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart', role: 'img', 'aria-label': title });
     svg.append(svgElement('title', {}, title));
-    svg.append(svgElement('desc', {}, `${valueLabel}. ${date(new Date(minTime).toISOString())} to ${date(new Date(maxTime).toISOString())}. Detailed values follow the chart.`));
+    svg.append(svgElement('desc', {}, `${valueLabel}. ${isDated ? `${date(new Date(minTime).toISOString())} to ${date(new Date(maxTime).toISOString())}` : categories.join(', ')}. Each line represents a labelled series.`));
     for (let i = 0; i <= 4; i += 1) {
       const value = low + (high - low) * i / 4;
       svg.append(svgElement('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: 'axis' }));
       svg.append(svgElement('text', { x: left - 10, y: y(value) + 4, 'text-anchor': 'end' }, number(value, tickDigits)));
     }
-    const endpointDates = [new Date(minTime).toISOString(), new Date(maxTime).toISOString()];
-    endpointDates.forEach((value, index) => svg.append(svgElement('text', {
-      x: index === 0 ? left : width - right, y: height - 8, 'text-anchor': index === 0 ? 'start' : 'end',
-    }, date(value))));
+    const axisLabels = isDated ? [new Date(minTime).toISOString(), new Date(maxTime).toISOString()] : categories.filter((_, index) => index === 0 || index === categories.length - 1 || categories.length <= 10);
+    axisLabels.forEach((value, index) => svg.append(svgElement('text', {
+      x: x(value), y: height - 8, 'text-anchor': index === 0 ? 'start' : index === axisLabels.length - 1 ? 'end' : 'middle',
+    }, isDated ? date(value) : value)));
     valid.forEach((item) => {
       // A missing observation breaks a path; it is never converted into a zero.
       let drawing = false;
       const path = item.points.map((point) => {
-        if (!finite(point.value) || !finite(Date.parse(point.date))) { drawing = false; return ''; }
+        if (!finite(point.value) || typeof point.date !== 'string') { drawing = false; return ''; }
         const command = drawing ? 'L' : 'M';
         drawing = true;
         return `${command}${x(point.date).toFixed(2)},${y(point.value).toFixed(2)}`;
       }).join(' ');
       svg.append(svgElement('path', { d: path, fill: 'none', stroke: item.color, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
+      if (!isDated || item.points.length === 1) item.points.filter((point) => finite(point.value)).forEach((point) => svg.append(svgElement('circle', { cx: x(point.date), cy: y(point.value), r: 3, fill: item.color })));
     });
     const wrapper = element('div', 'chart-wrap');
     wrapper.append(svg);
@@ -225,12 +231,125 @@
   }
 
   function panelValue(item) {
+    if (typeof item.value === 'string') return item.value;
     if (!finite(item.value)) return 'Unavailable';
     if (item.unit === 'fraction') return percent(item.value);
     if (item.unit === 'percent' || item.unit === 'percent_annualized') return `${number(item.value)}%`;
     if (item.unit === 'percentage_points') return `${number(item.value)} pp`;
+    if (item.unit === 'bps') return `${number(item.value, 1)} bps`;
+    if (item.unit === 'sessions') return `${number(item.value, 0)} sessions`;
+    if (item.unit === 'count') return number(item.value, 0);
     if (typeof item.unit === 'string' && /^[A-Z]{3}\/[A-Z]{3}$/.test(item.unit)) return `${number(item.value, 4)} ${item.unit}`;
     return number(item.value);
+  }
+
+  const palette = ['#7de0c5', '#91b5ff', '#e8ba83', '#9ca8b9'];
+  const analyticalGroups = {
+    'analytics-overview': ['risk', 'changes'],
+    'analytics-markets': ['correlations', 'rates', 'volatility', 'fx'],
+    'analytics-regimes': ['anomalies', 'playbook', 'analogues'],
+    'analytics-sectors': ['sectors'],
+  };
+
+  function sourceLabel(source) {
+    return source?.kind === 'mock' ? `MOCK DATA · ${text(source.label, 'Synthetic research inputs')}${source.seed === undefined ? '' : ` · Seed ${source.seed}`}` : text(source?.label, 'Source not declared');
+  }
+
+  function publishSource(source) {
+    const mock = source?.kind === 'mock';
+    $('mock-notice').hidden = !mock;
+    $('source-indicator').hidden = !mock;
+    if (mock) $('mock-description').textContent = `${sourceLabel(source)}. All prices, regimes and performance are simulated. Calculations use the same engine and data contract as a real feed.`;
+  }
+
+  function downloadButton(payload, filename, label) {
+    const button = element('button', 'button secondary', label);
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+      const link = element('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    return button;
+  }
+
+  function analyticalMetrics(items) {
+    const grid = element('div', 'metrics analytical-metrics');
+    list(items).forEach((item) => {
+      const metric = element('div', 'metric');
+      metric.append(element('div', 'label', text(item.label)), element('div', 'value', panelValue(item)));
+      if (item.reason || item.summary) metric.append(element('div', 'reason', item.reason || item.summary));
+      grid.append(metric);
+    });
+    return grid;
+  }
+
+  function analyticalTable(value) {
+    const columns = list(value.columns);
+    const correlation = /correlation/i.test(value.title || '') && columns.length > 2;
+    const node = table(columns, list(value.rows).map((row) => list(row).map((cell, index) => {
+      if (!finite(cell)) return cell === null ? '—' : String(cell);
+      const digits = /^(rank|count|periods|sessions)$/i.test(columns[index]) ? 0 : columns[index] === 'Quote' ? 4 : 2;
+      if (correlation && index > 0) {
+        const content = element('span', `heat-cell ${cell >= 0 ? 'positive' : 'negative'}-${Math.min(4, Math.ceil(Math.abs(cell) * 4))}`, number(cell));
+        content.title = `${row[0]} / ${columns[index]}: ${number(cell, 4)}`;
+        content.tabIndex = 0;
+        return content;
+      }
+      return number(cell, digits);
+    })), value.summary);
+    if (correlation) node.querySelector('table').classList.add('heatmap');
+    return node;
+  }
+
+  function renderAnalyticalSection(key, section) {
+    const card = element('article', `card analytical-card analytical-${key}`);
+    card.dataset.analysis = key;
+    const heading = element('div', 'card-heading');
+    heading.append(element('h3', '', text(section?.title, key)), badge(section?.status));
+    card.append(heading, element('p', 'analysis-summary', text(section?.summary, 'No calculation has been published for this section.')));
+    if (!section) return card;
+    if (list(section.metrics).length) card.append(analyticalMetrics(section.metrics));
+    const content = element('div', 'analysis-evidence');
+    list(section.charts).forEach((item, index) => {
+      const figure = element('figure', 'analytical-figure');
+      figure.append(element('figcaption', '', `${text(item.title)}${item.unit ? ` · ${item.unit}` : ''}`));
+      if (item.summary) figure.append(element('p', 'small muted', item.summary));
+      figure.append(chart(list(item.series).map((series, index) => ({ ...series, points: list(series.points), color: palette[index % palette.length] })), text(item.title), item.unit));
+      if (index === 0 && ['risk', 'rates', 'volatility', 'fx', 'analogues'].includes(key)) card.append(figure);
+      else content.append(figure);
+    });
+    list(section.tables).forEach((item) => {
+      const group = element('div', 'analysis-table');
+      group.append(element('h4', '', text(item.title)), analyticalTable(item));
+      content.append(group);
+    });
+    if (content.childElementCount) {
+      const expandable = details(`Explore ${text(section.title, key).toLowerCase()} · ${list(section.charts).length} charts / ${list(section.tables).length} tables`, content);
+      expandable.open = key === 'sectors' || key === 'changes';
+      card.append(expandable);
+    }
+    return card;
+  }
+
+  function renderAnalytics(data) {
+    const sections = data.sections;
+    Object.entries(analyticalGroups).forEach(([id, keys]) => {
+      $(id).replaceChildren(...keys.map((key) => renderAnalyticalSection(key, sections[key])));
+    });
+    const risk = sections.risk;
+    if (risk && risk.status !== 'unavailable') {
+      $('risk-bias').replaceChildren(element('p', 'bias-label', 'Multi-horizon view'), element('p', 'bias-explanation', text(risk.summary)), element('p', 'small muted', 'Signed research scores: −100 defensive to +100 constructive. Not calibrated probabilities.'));
+      $('risk-factors').replaceChildren(analyticalMetrics(list(risk.metrics).slice(0, 3)));
+    }
+    $('analytics-sectors').append(downloadButton(data, `radar-analytics-${data.as_of}.json`, 'Download all analytics · JSON'));
+  }
+
+  function clearAnalytics(message = 'No current calculation available.') {
+    Object.keys(analyticalGroups).forEach((id) => $(id).replaceChildren(unavailable(message)));
   }
 
   function renderPanels(panels) {
@@ -276,6 +395,7 @@
     $('coverage-content').replaceChildren(unavailable('No validated dataset loaded.'));
     $('coverage-status').replaceWith(Object.assign(badge('unavailable'), { id: 'coverage-status' }));
     $('market-provenance').textContent = 'No observations published';
+    clearAnalytics();
   }
 
   async function loadMarket() {
@@ -289,10 +409,15 @@
     $('market-status').textContent = 'Loading evidence';
     $('market-status').dataset.status = 'loading';
     $('market-error').hidden = true;
+    $('analytics-error').hidden = true;
     clearMarket();
     try {
-      const data = await request('/api/market', controller, true);
+      const [marketResponse, analyticalResponse] = await Promise.allSettled([
+        request('/api/market', controller, true), request('/api/analytics', controller),
+      ]);
       if (sequence !== marketSequence) return;
+      if (marketResponse.status === 'rejected') throw marketResponse.reason;
+      const data = marketResponse.value;
       if (!Array.isArray(data.assets) || !Array.isArray(data.rates) || typeof data.dataset_id !== 'string') throw new Error('The market response does not match the supported API contract.');
       const risk = renderRisk(data);
       const updates = {
@@ -301,10 +426,21 @@
         'derived-panels': renderPanels(data.panels), 'coverage-content': renderCoverage(data),
       };
       Object.entries(updates).forEach(([id, content]) => $(id).replaceChildren(content));
+      publishSource(data.source);
+      try {
+        if (analyticalResponse.status === 'rejected') throw analyticalResponse.reason;
+        const analytics = analyticalResponse.value;
+        if (!analytics.sections || analytics.dataset_id !== data.dataset_id) throw new Error('Analytics did not match the current market dataset. Refresh evidence to load one consistent snapshot.');
+        renderAnalytics(analytics);
+      } catch (error) {
+        clearAnalytics('Analytical calculations are unavailable. Market observations remain available above.');
+        $('analytics-error').textContent = error.message;
+        $('analytics-error').hidden = false;
+      }
       $('market-status').replaceWith(Object.assign(badge(data.status, `Market evidence · ${text(data.status)}`), { id: 'market-status' }));
       $('market-status').setAttribute('role', 'status');
       $('coverage-status').replaceWith(Object.assign(badge(data.status), { id: 'coverage-status' }));
-      $('market-provenance').textContent = `As of ${date(data.as_of)} · Dataset ${data.dataset_id}`;
+      $('market-provenance').textContent = `${sourceLabel(data.source)} · As of ${date(data.as_of)} · Dataset ${data.dataset_id}`;
       if (data.status !== 'ready') {
         $('market-error').textContent = 'Market coverage is incomplete or stale. Inspect each observation’s status and the dataset coverage below.';
         $('market-error').hidden = false;
@@ -324,20 +460,37 @@
   }
 
   function readParams() {
-    return freeze({ start: $('start').value, end: $('end').value || null, mode: $('mode').value, cost_bps: Number($('cost-bps').value), short_borrow_bps: Number($('borrow-bps').value), rebalance: 'monthly' });
+    return freeze({ start: $('start').value, end: $('end').value || null, mode: $('mode').value, cost_bps: Number($('cost-bps').value), short_borrow_bps: Number($('borrow-bps').value), rebalance: $('rebalance').value, top_n: Number($('top-n').value) });
+  }
+
+  function updateControls() {
+    const busy = state.run.phase === 'loading' || state.study.phase === 'loading';
+    $('backtest-fields').disabled = fileMode || busy;
+    $('run-studies').disabled = fileMode || busy;
+    $('top-n').disabled = !['ranked3', 'compare'].includes($('mode').value);
+    const size = Number($('top-n').value);
+    $('strategy-description').textContent = $('mode').value === 'ranked3'
+      ? `${size} longs and ${size} shorts. Each leg totals 100%; ${size === 1 ? 'one sector receives the full leg' : 'rank one receives 50%, with the remainder shared equally'}. The worst-ranked sector receives the largest short weight.`
+      : descriptions[$('mode').value] || 'Choose a supported strategy.';
   }
 
   function invalidateRun() {
     runSequence += 1;
     runController?.abort();
+    studySequence += 1;
+    studyController?.abort();
     setState('run', { phase: 'idle', params: null, result: null });
-    $('backtest-fields').disabled = fileMode;
+    setState('study', { phase: 'idle' });
+    updateControls();
     $('run-results').replaceChildren();
     $('run-results').setAttribute('aria-busy', 'false');
     $('run-error').hidden = true;
     $('run-status').textContent = 'Parameters changed · run research to calculate a matching result.';
     $('run-status').dataset.phase = 'idle';
-    $('strategy-description').textContent = descriptions[$('mode').value] || 'Choose a supported strategy.';
+    $('study-results').replaceChildren();
+    $('study-results').setAttribute('aria-busy', 'false');
+    $('study-error').hidden = true;
+    $('study-status').textContent = 'Parameters changed · run studies to calculate matching results.';
     $('end').setCustomValidity('');
   }
 
@@ -357,7 +510,7 @@
 
   const metrics = [
     ['cagr', 'Annualized return', percent], ['annualized_volatility', 'Annualized volatility', percent],
-    ['sharpe', 'Sharpe · excess returns', number], ['max_drawdown_monthly', 'Monthly drawdown', percent],
+    ['sharpe', 'Sharpe · excess returns', number], ['max_drawdown_daily', 'Daily drawdown', percent],
     ['total_return', 'Total return', percent], ['benchmark_total_return', 'SPY total return', percent],
     ['hit_rate', 'Periods outperforming SPY', percent], ['annualized_turnover', 'Annual turnover', percent],
   ];
@@ -365,6 +518,7 @@
   function renderMetrics(stats) {
     const grid = element('div', 'metrics');
     metrics.forEach(([key, label, formatter]) => {
+      if (key === 'max_drawdown_daily' && stats[key] === undefined) { key = 'max_drawdown_monthly'; label = 'Monthly drawdown'; }
       const metric = element('div', 'metric');
       metric.dataset.metric = key;
       metric.append(element('div', 'label', label), element('div', 'value', formatter(stats[key])));
@@ -392,36 +546,83 @@
   }
 
   function renderDiagnostics(value) {
-    const data = element('pre', 'small muted diagnostics');
-    data.textContent = JSON.stringify(value || {}, null, 2);
-    return data;
+    const rows = Object.entries(value || {}).filter(([, item]) => !Array.isArray(item)).map(([key, item]) => [key.replaceAll('_', ' '), finite(item) ? number(item) : item === null ? 'Unavailable' : typeof item === 'object' ? Object.entries(item).map(([name, entry]) => `${name.replaceAll('_', ' ')}: ${finite(entry) ? number(entry) : entry ?? 'Unavailable'}`).join(' · ') : String(item)]);
+    return table(['Diagnostic', 'Value'], rows);
+  }
+
+  function renderResearchExtensions(result) {
+    const output = document.createDocumentFragment();
+    if (result.benchmark_stats) {
+      const metricRows = [...metrics.filter(([key]) => !['benchmark_total_return', 'hit_rate'].includes(key)), ['max_drawdown_monthly', 'Monthly drawdown', percent], ['periods', 'Completed periods', (value) => number(value, 0)]];
+      const rows = metricRows.map(([key, label, formatter]) => [label, formatter(result.stats[key]), formatter(result.benchmark_stats[key])]);
+      rows.push(['Periods outperforming SPY', percent(result.stats.hit_rate), '—'], ['Positive SPY periods', '—', percent(result.benchmark_stats.hit_rate)]);
+      output.append(details('Strategy versus SPY · full statistics', table(['Metric', 'Strategy', 'SPY'], rows, `Volatility and Sharpe use ${text(result.stats.return_frequency, 'declared-frequency')} completed returns. Strategy hit rate compares against SPY; benchmark hit rate measures positive returns.`)));
+    }
+    const annual = list(result.annual_returns);
+    if (annual.length) {
+      const box = element('div');
+      box.append(chart([
+        { label: 'Strategy return', color: palette[0], points: annual.map((row) => ({ date: String(row.year), value: finite(row.strategy) ? row.strategy * 100 : null })) },
+        { label: 'SPY return', color: palette[3], points: annual.map((row) => ({ date: String(row.year), value: finite(row.benchmark) ? row.benchmark * 100 : null })) },
+        { label: 'Excess return', color: palette[1], points: annual.map((row) => ({ date: String(row.year), value: finite(row.excess) ? row.excess * 100 : null })) },
+      ], 'Annual strategy, benchmark and excess returns', 'Percent'));
+      box.append(table(['Year', 'Strategy', 'SPY', 'Excess', 'Coverage'], annual.map((row) => [String(row.year), percent(row.strategy, true), percent(row.benchmark, true), percent(row.excess, true), `${date(row.start)} → ${date(row.end)}${row.partial ? ' · partial year' : ''}`])));
+      const view = details('Annual returns & excess performance', box);
+      view.open = true;
+      output.append(view);
+    }
+    if (list(result.drawdown_curve).length || list(result.rolling_excess).length) {
+      const box = element('div');
+      if (list(result.drawdown_curve).length) box.append(element('h4', '', 'Daily drawdown comparison'), chart([
+        { label: 'Strategy', color: palette[0], points: result.drawdown_curve.map((row) => ({ date: row.date, value: finite(row.strategy) ? row.strategy * 100 : null })) },
+        { label: 'SPY', color: palette[3], points: result.drawdown_curve.map((row) => ({ date: row.date, value: finite(row.benchmark) ? row.benchmark * 100 : null })) },
+      ], 'Strategy and SPY daily drawdowns', 'Percent'));
+      if (list(result.rolling_excess).length) box.append(element('h4', '', 'Trailing 12-month excess return'), chart([{ label: 'Strategy minus SPY', color: palette[1], points: result.rolling_excess.map((row) => ({ date: row.date, value: finite(row.value) ? row.value * 100 : null })) }], 'Rolling 12-month excess return', 'Percentage points'));
+      if (result.diagnostics?.chart_sampling) box.append(element('p', 'small muted', result.diagnostics.chart_sampling));
+      output.append(details('Drawdowns & rolling excess returns', box));
+    }
+    const diagnostics = result.diagnostics || {};
+    if (['rank_persistence', 'top_retention', 'average_holding_days', 'top_beats_bottom_rate', 'positive_net_spread_rate'].some((key) => key in diagnostics)) {
+      const panel = element('div');
+      panel.append(analyticalMetrics([
+        { label: 'Ranking persistence', value: diagnostics.rank_persistence, unit: 'correlation' },
+        { label: 'Top basket retention', value: diagnostics.top_retention, unit: 'fraction' },
+        { label: 'Average holding duration · days', value: diagnostics.average_holding_days },
+        { label: 'Top beats bottom', value: diagnostics.top_beats_bottom_rate, unit: 'fraction' },
+        { label: 'Positive net spread periods', value: diagnostics.positive_net_spread_rate, unit: 'fraction' },
+        { label: 'Top-ranked sector · average return per cycle', value: diagnostics.average_top_return, unit: 'fraction' },
+        { label: 'Bottom-ranked sector · average return per cycle', value: diagnostics.average_bottom_return, unit: 'fraction' },
+        { label: 'Top minus bottom · average spread per cycle', value: diagnostics.average_top_bottom_spread, unit: 'fraction' },
+      ]), element('p', 'small muted', 'Top and bottom averages use the single best- and worst-ranked sectors over each completed cycle. Their spread is a return difference; the win-rate metrics count the share of qualifying cycles.'), element('p', 'small muted', text(diagnostics.ranking_metric_status, 'Rank persistence describes consecutive rankings. Retention measures basket overlap.')), element('p', 'small muted', text(diagnostics.holding_duration_status, 'Holding duration and realized spreads use executed observations.')));
+      output.append(details('Ranking stability & rotation diagnostics', panel));
+    }
+    if (list(diagnostics.attribution).length) output.append(details('Sector return attribution', table(['Sector', 'Long contribution', 'Short contribution', 'Total contribution'], diagnostics.attribution.map((row) => [row.symbol, percent(row.long_contribution, true), percent(row.short_contribution, true), percent(row.total_contribution, true)]), text(diagnostics.attribution_basis, 'Gross marked P&L contributions. Financing and trading costs are reported separately in executed holdings.'))));
+    if (list(diagnostics.score_attribution).length) output.append(details('Factor score attribution', table(['Factor', 'Average long score points', 'Average short score points'], diagnostics.score_attribution.map((row) => [row.factor, number(row.average_long_score_points), number(row.average_short_score_points)]), text(diagnostics.score_attribution_basis, 'Contributions to the ranking score, not realized investment returns.'))));
+    if (list(diagnostics.regime_performance).length) output.append(details('Performance by historical regime', regimeTable(diagnostics.regime_performance)));
+    return output;
+  }
+
+  function regimeTable(rows) {
+    return table(['Regime', 'Periods', 'Hit rate', 'Average return', 'Average excess'], rows.map((row) => [row.regime, number(row.periods, 0), percent(row.hit_rate), percent(row.average_return, true), percent(row.average_excess, true)]), 'Descriptive grouping of the simulated sample. Average returns use the selected rebalance frequency.');
   }
 
   function renderResults(data, params) {
     const output = document.createDocumentFragment();
     const provenance = element('div', 'run-provenance');
     provenance.append(element('h3', '', 'Matched research run'));
+    provenance.append(element('p', data.source?.kind === 'mock' ? 'source-note mock-source' : 'source-note', sourceLabel(data.source)));
     const summary = element('div', 'provenance-grid');
     [
       ['Dataset', data.dataset_id], ['Model', data.model_version], ['Requested', `${params.start} → ${params.end || 'dataset cutoff'}`],
       ['Trading', `${number(params.cost_bps, 1)} bps`], ['Borrow', `${number(params.short_borrow_bps, 1)} bps / year`], ['Rebalance', params.rebalance],
+      ['Ranked basket', `${params.top_n} per leg`],
     ].forEach(([label, value]) => { const node = element('span'); node.append(document.createTextNode(`${label}: `), element('b', '', value)); summary.append(node); });
     provenance.append(summary);
     const period = data.period;
     provenance.append(element('p', 'small muted', `Warm-up from ${date(period.warmup_start)} · first decision ${date(period.first_decision)} · first execution ${date(period.first_execution)} · first return ${date(period.first_return)} · last completed return ${date(period.last_complete_return)} · ${finite(period.complete_periods) ? period.complete_periods : 'Unavailable'} completed periods.`));
     if (period.excluded_partial) provenance.append(element('p', 'small muted', 'The incomplete final period is excluded from completed-period statistics.'));
     if (Object.values(data.results).some((result) => result.status === 'ruined')) provenance.append(element('p', 'negative small', 'A strategy reached its terminal loss condition. Its curve stops at ruin; unavailable metrics retain their reason.'));
-    const download = element('button', 'button secondary', 'Download this run · JSON');
-    download.type = 'button';
-    download.addEventListener('click', () => {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-      const link = element('a');
-      link.href = url;
-      link.download = `radar-${params.mode}-${params.start}.json`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
-    provenance.append(download);
+    provenance.append(downloadButton(data, `radar-${params.mode}-${params.start}.json`, 'Download this run · JSON'));
     output.append(provenance);
     const entries = Object.entries(data.results);
     const colors = { extreme1: '#7de0c5', ranked3: '#91b5ff', longonly3: '#e8ba83' };
@@ -433,7 +634,8 @@
       const longestCurve = entries.reduce((longest, [, result]) => Date.parse(result.equity_curve.at(-1)?.date) > Date.parse(longest.at(-1)?.date || '1900-01-01') ? result.equity_curve : longest, []);
       lines.push({ label: 'SPY benchmark', color: '#9ca8b9', points: longestCurve.map((row) => ({ date: row.date, value: row.benchmark })) });
       comparison.append(chart(lines, 'Strategy comparison equity curves'));
-      comparison.append(table(['Strategy', 'CAGR', 'Volatility', 'Sharpe', 'Monthly drawdown', 'Status'], entries.map(([mode, result]) => [strategyLabels[mode], percent(result.stats.cagr), percent(result.stats.annualized_volatility), number(result.stats.sharpe), percent(result.stats.max_drawdown_monthly), text(result.status)])));
+      const dailyDrawdown = entries.every(([, result]) => result.stats.max_drawdown_daily !== undefined);
+      comparison.append(table(['Strategy', 'CAGR', 'Volatility', 'Sharpe', dailyDrawdown ? 'Daily drawdown' : 'Monthly drawdown', 'Status'], entries.map(([mode, result]) => [strategyLabels[mode], percent(result.stats.cagr), percent(result.stats.annualized_volatility), number(result.stats.sharpe), percent(result.stats[dailyDrawdown ? 'max_drawdown_daily' : 'max_drawdown_monthly']), text(result.status)])));
       output.append(comparison);
     }
     entries.forEach(([mode, result]) => {
@@ -449,6 +651,7 @@
         { label: strategyLabels[mode], color: colors[mode], points: result.equity_curve.map((row) => ({ date: row.date, value: row.strategy })) },
         { label: 'SPY benchmark', color: '#9ca8b9', points: result.equity_curve.map((row) => ({ date: row.date, value: row.benchmark })) },
       ], `${strategyLabels[mode]} and SPY equity curve`));
+      card.append(renderResearchExtensions(result));
       card.append(details(`Executed holdings · ${result.holdings.length} periods`, renderHoldings(result.holdings)));
       card.append(details('Decision scores and macro states', table(['Decision', 'Sector scores', 'Normalized macro states'], result.holdings.map((row) => {
         const scores = element('span', 'weights', list(row.scores).map((entry) => `${text(entry.symbol)}: ${number(entry.score)}`).join(' · ') || 'Unavailable');
@@ -479,7 +682,7 @@
     runController = new AbortController();
     const controller = runController;
     setState('run', { phase: 'loading', params, result: null });
-    $('backtest-fields').disabled = true;
+    updateControls();
     $('run-results').replaceChildren();
     $('run-results').setAttribute('aria-busy', 'true');
     $('run-error').hidden = true;
@@ -507,8 +710,70 @@
       $('run-status').dataset.phase = 'error';
     } finally {
       if (sequence === runSequence) {
-        $('backtest-fields').disabled = false;
+        updateControls();
         $('run-results').setAttribute('aria-busy', 'false');
+      }
+    }
+  }
+
+  function renderStudies(data) {
+    const output = element('div', 'study-output');
+    output.append(element('p', data.source?.kind === 'mock' ? 'source-note mock-source' : 'source-note', sourceLabel(data.source)));
+    output.append(element('p', 'small muted', `Dataset ${data.dataset_id} · Model ${data.model_version} · ${data.params.rebalance} base schedule · Ranked basket ${data.params.top_n}.`));
+    output.append(element('h4', '', 'Ranked basket · nearby strategy assumptions'));
+    output.append(table(['Basket size', 'Rebalance', 'CAGR', 'Volatility', 'Sharpe', 'Daily drawdown', 'Periods', 'Actual execution window', 'Status'], list(data.robustness).map((row) => [number(row.top_n, 0), row.rebalance, percent(row.stats?.cagr), percent(row.stats?.annualized_volatility), number(row.stats?.sharpe), percent(row.stats?.max_drawdown_daily), number(row.stats?.periods, 0), `${date(row.period?.first_execution)} → ${date(row.period?.last_complete_return)}`, text(row.error?.message, text(row.status))]), 'Each variant uses the same dataset and requested dates. Realized execution windows differ by schedule and must be considered when comparing metrics.'));
+    output.append(element('h4', '', `Trading-cost sensitivity${data.strategy?.label ? ` · ${data.strategy.label}` : ''}`));
+    output.append(table(['One-way trading cost', 'CAGR', 'Total return', 'Sharpe', 'Daily drawdown', 'Status'], list(data.cost_sensitivity).map((row) => [`${number(row.cost_bps, 1)} bps`, percent(row.stats?.cagr), percent(row.stats?.total_return), number(row.stats?.sharpe), percent(row.stats?.max_drawdown_daily), text(row.status)])));
+    if (list(data.regime_performance).length) output.append(element('h4', '', 'Performance by regime'), regimeTable(data.regime_performance));
+    if (Array.isArray(data.methodology)) {
+      const notes = element('ul', 'study-methodology');
+      data.methodology.forEach((value) => notes.append(element('li', '', typeof value === 'string' ? value : text(value.description))));
+      output.append(notes);
+    } else if (typeof data.methodology === 'string') output.append(element('p', 'small muted', data.methodology));
+    output.append(downloadButton(data, `radar-studies-${data.params.start}.json`, 'Download these studies · JSON'));
+    return output;
+  }
+
+  async function runStudies() {
+    if (fileMode || !$('backtest-form').reportValidity()) return;
+    const params = readParams();
+    if (params.end && params.end <= params.start) {
+      $('end').setCustomValidity('Evaluation end must be after the start date.');
+      $('end').reportValidity();
+      return;
+    }
+    const sequence = ++studySequence;
+    studyController?.abort();
+    studyController = new AbortController();
+    const controller = studyController;
+    setState('study', { phase: 'loading', params });
+    updateControls();
+    $('study-results').replaceChildren();
+    $('study-results').setAttribute('aria-busy', 'true');
+    $('study-error').hidden = true;
+    $('study-status').textContent = 'Calculating bounded robustness and cost scenarios…';
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => { if (value !== null) query.set(key, value); });
+    try {
+      const data = await request(`/api/studies?${query}`, controller);
+      if (sequence !== studySequence) return;
+      if (typeof data.dataset_id !== 'string' || typeof data.model_version !== 'string' || !data.params || !Array.isArray(data.robustness) || !Array.isArray(data.cost_sensitivity)) throw new Error('The study response does not match the supported API contract.');
+      for (const key of Object.keys(params)) if ((data.params[key] ?? null) !== params[key]) throw new Error('Returned study assumptions do not match this request. No result was published.');
+      const result = renderStudies(data);
+      setState('study', { phase: 'success', params, result: data });
+      $('study-results').replaceChildren(result);
+      $('study-status').textContent = `Studies complete · ${data.robustness.length} strategy variants · ${data.cost_sensitivity.length} cost scenarios`;
+    } catch (error) {
+      if (sequence !== studySequence) return;
+      setState('study', { phase: 'error', params, error: error.message });
+      $('study-results').replaceChildren();
+      $('study-error').textContent = error.message;
+      $('study-error').hidden = false;
+      $('study-status').textContent = 'Studies unavailable · no result published for these parameters.';
+    } finally {
+      if (sequence === studySequence) {
+        updateControls();
+        $('study-results').setAttribute('aria-busy', 'false');
       }
     }
   }
@@ -517,7 +782,9 @@
   $('backtest-form').addEventListener('submit', runBacktest);
   $('backtest-form').addEventListener('input', invalidateRun);
   $('backtest-form').addEventListener('change', invalidateRun);
-  window.addEventListener('pagehide', () => { marketController?.abort(); runController?.abort(); });
+  $('run-studies').addEventListener('click', runStudies);
+  window.addEventListener('pagehide', () => { marketController?.abort(); runController?.abort(); studyController?.abort(); });
+  updateControls();
   $('derived-panels').replaceChildren(renderPanels(null));
   if (fileMode) {
     $('file-notice').hidden = false;

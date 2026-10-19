@@ -14,7 +14,7 @@
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="#overview" aria-label="Market Regime Radar overview"><span class="radar-mark" aria-hidden="true"><i></i></span><span>MARKET REGIME <b>RADAR</b></span></a>
-    <span class="edition">DAILY RESEARCH <span class="version">V5</span></span>
+    <span class="edition"><span id="source-indicator" hidden>MOCK DATA · </span>DAILY RESEARCH <span class="version">V5</span></span>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -22,13 +22,16 @@
       <nav aria-label="Main navigation">
         <a href="#overview"><span aria-hidden="true">01</span> Overview</a>
         <a href="#markets"><span aria-hidden="true">02</span> Market evidence</a>
-        <a href="#research"><span aria-hidden="true">03</span> Strategy research</a>
-        <a href="#coverage"><span aria-hidden="true">04</span> Data coverage</a>
-        <a href="#methodology"><span aria-hidden="true">05</span> Methodology</a>
+        <a href="#regimes"><span aria-hidden="true">03</span> Regime analysis</a>
+        <a href="#sectors"><span aria-hidden="true">04</span> Sector positioning</a>
+        <a href="#research"><span aria-hidden="true">05</span> Strategy research</a>
+        <a href="#coverage"><span aria-hidden="true">06</span> Data coverage</a>
+        <a href="#methodology"><span aria-hidden="true">07</span> Methodology</a>
       </nav>
       <div class="sidebar-note"><span class="small-dot"></span> Evidence before conviction<p>Daily observations.<br>Explicit assumptions.<br>Traceable results.</p></div>
     </aside>
     <main id="main">
+      <div id="mock-notice" class="notice mock-notice" role="status" hidden><strong>MOCK DATA · Real calculations, simulated inputs</strong><p id="mock-description">This research workspace is using a reproducible synthetic dataset. All prices, regimes and performance are simulated.</p></div>
       <div id="file-notice" class="notice" role="alert" hidden>
         <h2>Start the local server</h2>
         <p>This page needs the Python API to load a validated dataset and run research. From the project directory, run:</p>
@@ -40,13 +43,25 @@
         <div class="section-heading hero"><div><p class="eyebrow">A clearer view of the market</p><h1 id="overview-title">Market regime radar<span>.</span></h1><p class="lede">Connect market evidence to transparent sector research.</p></div><button id="refresh-market" class="button secondary" type="button">Refresh evidence <span aria-hidden="true">↻</span></button></div>
         <div class="feed-line"><span id="market-status" class="badge" role="status">Waiting for dataset</span><span id="market-provenance">No observations loaded</span></div>
         <div id="market-error" class="notice" role="alert" hidden></div>
-        <div class="overview-grid"><article class="card bias-card"><div class="card-heading"><h2>Risk bias</h2><span class="tag">MODEL REVIEW</span></div><div id="risk-bias"><p class="unavailable">Unavailable</p><p class="muted">A validated dataset is required.</p></div></article><article class="card evidence-card"><div class="card-heading"><h2>Evidence behind the bias</h2><span class="muted">Daily inputs</span></div><div id="risk-factors" class="empty-state">No factors available yet.</div></article></div>
+        <div class="overview-grid"><article class="card bias-card"><div class="card-heading"><h2>Risk bias</h2><span class="tag">RESEARCH RULES</span></div><div id="risk-bias"><p class="unavailable">Unavailable</p><p class="muted">A validated dataset is required.</p></div></article><article class="card evidence-card"><div class="card-heading"><h2>Evidence behind the bias</h2><span class="muted">Daily inputs</span></div><div id="risk-factors" class="empty-state">No factors available yet.</div></article></div>
+        <div id="analytics-error" class="notice" role="alert" hidden></div>
+        <div id="analytics-overview" class="analytics-group"></div>
       </section>
       <section id="markets" aria-labelledby="markets-title">
         <div class="section-heading"><div><p class="eyebrow">The observations</p><h2 id="markets-title">Market evidence</h2></div><span class="section-note">Quoted closes · USD ETF proxies</span></div>
         <article class="card"><div class="card-heading"><h3>Cross-asset dashboard</h3><span class="muted">Changes use total-return indices</span></div><div id="assets-table" class="empty-state">No market observations loaded.</div></article>
         <div class="two-column"><article class="card"><div class="card-heading"><h3>US Treasury curve</h3><span class="muted">Yield, %</span></div><div id="rates-content" class="empty-state">No rate observations loaded.</div></article><article class="card"><div class="card-heading"><h3>Cross-asset correlations</h3><span class="muted">Daily total returns</span></div><p class="small muted">Paired by matching observation intervals. Unavailable pairs remain blank.</p><div id="correlation-content" class="empty-state">No common history loaded.</div></article></div>
         <div id="derived-panels" class="three-column"></div>
+        <div id="analytics-markets" class="analytics-group"></div>
+      </section>
+      <section id="regimes" aria-labelledby="regimes-title">
+        <div class="section-heading"><div><p class="eyebrow">See the wider pattern</p><h2 id="regimes-title">Regime analysis</h2></div><span class="badge research-badge">Descriptive research rules</span></div>
+        <p class="section-description">Read the anomalies, historical matches and rule-based playbook behind the current regime. Historical outcomes describe the sample; they are not forecasts.</p>
+        <div id="analytics-regimes"><p class="empty-state">Loading regime calculations…</p></div>
+      </section>
+      <section id="sectors" aria-labelledby="sectors-title">
+        <div class="section-heading"><div><p class="eyebrow">From factors to positioning</p><h2 id="sectors-title">Sector positioning</h2></div><span class="section-note">Legacy sensitivities · unvalidated</span></div>
+        <div id="analytics-sectors"><p class="empty-state">Loading sector calculations…</p></div>
       </section>
       <section id="research" aria-labelledby="research-title">
         <div class="section-heading"><div><p class="eyebrow">Test the assumptions</p><h2 id="research-title">Strategy research</h2></div><span class="badge research-badge">Unvalidated research model</span></div>
@@ -54,12 +69,14 @@
         <form id="backtest-form" class="card controls">
           <fieldset id="backtest-fields"><legend class="visually-hidden">Backtest parameters</legend>
             <div class="form-grid">
-              <label class="mode-control" for="mode">Strategy<select id="mode" name="mode"><option value="extreme1">Extreme · +200% / −200%</option><option value="ranked3">Ranked three · +100% / −100%</option><option value="longonly3">Long only · 210% long</option><option value="compare">Compare all three strategies</option></select></label>
+              <label class="mode-control" for="mode">Strategy<select id="mode" name="mode"><option value="extreme1">Extreme · +200% / −200%</option><option value="ranked3">Ranked basket · +100% / −100%</option><option value="longonly3">Long only · 210% long</option><option value="compare">Compare all three strategies</option></select></label>
               <label for="start">Evaluation start<input id="start" name="start" type="date" min="2018-06-19" value="2020-01-01" required></label>
               <label for="end">Evaluation end<input id="end" name="end" type="date"><span class="field-hint">Blank uses the dataset cutoff</span></label>
               <label for="cost-bps">Trading cost <span class="unit">bps / one-way</span><input id="cost-bps" name="cost_bps" type="number" value="10" min="0" max="1000" step="0.1" required></label>
               <label for="borrow-bps">Short borrow <span class="unit">bps / year</span><input id="borrow-bps" name="short_borrow_bps" type="number" value="50" min="0" max="10000" step="0.1" required></label>
-              <div class="run-control"><span class="field-hint">Monthly rebalance</span><button id="run-backtest" class="button primary" type="submit">Run research <span aria-hidden="true">↗</span></button></div>
+              <label for="rebalance">Rebalance<select id="rebalance" name="rebalance"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="quarterly">Quarterly</option></select></label>
+              <label for="top-n">Ranked basket size<select id="top-n" name="top_n" disabled><option value="1">Top / bottom 1</option><option value="2">Top / bottom 2</option><option value="3" selected>Top / bottom 3</option><option value="4">Top / bottom 4</option><option value="5">Top / bottom 5</option></select><span class="field-hint">Applies to ranked basket and comparison</span></label>
+              <div class="run-control"><button id="run-backtest" class="button primary" type="submit">Run research <span aria-hidden="true">↗</span></button></div>
             </div>
           </fieldset>
           <p id="strategy-description" class="form-footnote">Highest-ranked sector +200%; lowest-ranked sector −200%. Gross exposure 400%.</p>
@@ -67,15 +84,15 @@
         <div id="run-status" class="run-status" role="status" aria-live="polite">Choose parameters and run research.</div>
         <div id="run-error" class="notice" role="alert" hidden></div>
         <div id="run-results" aria-label="Backtest results" aria-busy="false"></div>
+        <article class="card studies-control"><div class="card-heading"><div><h3>Robustness &amp; cost sensitivity</h3><p class="small muted">Test nearby basket sizes, rebalance schedules and trading costs using the parameters above.</p></div><button id="run-studies" class="button secondary" type="button">Run studies</button></div><p id="study-status" class="run-status" role="status" aria-live="polite">Studies are calculated separately and may take longer.</p><div id="study-error" class="notice" role="alert" hidden></div><div id="study-results" aria-busy="false"></div></article>
       </section>
       <section id="coverage" aria-labelledby="coverage-title">
         <div class="section-heading"><div><p class="eyebrow">Know what is available</p><h2 id="coverage-title">Data coverage</h2></div><span class="section-note">No synthetic fallback</span></div>
         <div class="card"><div class="card-heading"><h3>Dataset provenance</h3><span id="coverage-status" class="badge">Not loaded</span></div><div id="coverage-content" class="empty-state">Configure a data_mesh snapshot to inspect source coverage and dates.</div></div>
-        <div class="card unavailable-panels"><div class="card-heading"><h3>Additional research</h3><span class="tag">NOT YET IMPLEMENTED</span></div><p class="muted">These analyses require their own calculation and validation. No scores or performance are published for them.</p><ul><li>Current sector allocation and trade recommendations</li><li>Historical regime matches and forecasts</li><li>Regime playbook recommendations</li><li>Robustness and cost-sensitivity studies</li><li>Automated daily narratives and anomaly attribution</li></ul></div>
       </section>
       <section id="methodology" aria-labelledby="methodology-title">
         <div class="section-heading"><div><p class="eyebrow">Read the model before the result</p><h2 id="methodology-title">Methodology &amp; boundaries</h2></div></div>
-        <div class="three-column methodology-grid"><article class="card"><span class="step">01 / DATA</span><h3>One declared dataset</h3><p>Quoted closes support market monitoring. Separate, consistently defined total-return indices support strategy returns. Observation dates, availability times and source identities travel with the data.</p></article><article class="card"><span class="step">02 / MODEL</span><h3>Explicit research assumptions</h3><p>The sector model combines macro sensitivities with six-month momentum. Its fixed coefficients are not company fundamentals, a calibrated probability or a demonstrated investment edge.</p></article><article class="card"><span class="step">03 / EXECUTION</span><h3>Timing and costs matter</h3><p>Monthly decisions precede execution. The engine checks warm-up and coverage, charges signed turnover and financing, and reports actual evaluation dates. Missing required inputs block a simulation.</p></article></div>
+        <div class="three-column methodology-grid"><article class="card"><span class="step">01 / DATA</span><h3>One declared dataset</h3><p>Quoted closes support market monitoring. Separate, consistently defined total-return indices support strategy returns. Observation dates, availability times and source identities travel with the data. Mock mode is explicitly labelled and never substitutes for a failed live feed.</p></article><article class="card"><span class="step">02 / MODEL</span><h3>Explicit research assumptions</h3><p>The sector model combines macro sensitivities with six-month momentum. Its fixed coefficients and descriptive regime rules are not company fundamentals, calibrated probabilities or a demonstrated investment edge.</p></article><article class="card"><span class="step">03 / EXECUTION</span><h3>Timing and costs matter</h3><p>Weekly, monthly or quarterly decisions precede execution. The engine checks warm-up and coverage, charges signed turnover and financing, and reports actual evaluation dates. Missing required inputs block a simulation.</p></article></div>
         <div class="methodology-note"><p><b>Reading a run:</b> parameters, dataset identity, model version, dates and assumptions are saved together in each result. Undefined metrics are shown as unavailable with their reason. Drawdown reflects the engine's observation frequency and does not establish intraday margin survival.</p><p>Ranked three assigns the largest short weight to the worst-ranked sector. Strategy comparisons use the same dataset and requested assumptions.</p></div>
       </section>
       <footer><span>MARKET REGIME RADAR</span><p>Transparent inputs. Reproducible research.</p><a href="#overview">Back to top ↑</a></footer>

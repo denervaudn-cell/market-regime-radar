@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "uv run uvicorn app:app --reload --host 127.0.0.1 --port 8000",
+    "dev:mock": "RADAR_DATA_MODE=mock uv run uvicorn app:app --reload --host 127.0.0.1 --port 8000",
     "test": "uv run pytest",
     "test:ui": "playwright test",
     "test:legacy": "node --test tests/legacy.test.js",

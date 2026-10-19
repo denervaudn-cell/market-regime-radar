@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "model_version": "5.0.0-legacy-unvalidated",
+  "model_version": "5.1.0-legacy-unvalidated",
   "canonical_implementation": "radar/engine.py",
   "documentation": "docs/model.md",
-  "purpose": "Unvalidated monthly sector-ranking research with explicit point-in-time and portfolio accounting.",
+  "purpose": "Unvalidated sector-ranking research with weekly/monthly/quarterly causal schedules and explicit portfolio accounting.",
   "scoring": {
     "status": "unvalidated_legacy_research",
     "exposure_columns": [
@@ -200,7 +200,8 @@
         "third_worst"
       ],
       "gross": 2,
-      "net": 0
+      "net": 0,
+      "top_n_rule": "Default3; N1 is100% per leg; N2..5 rank1 50%, remaining ranks50%/(N-1), worst short first."
     },
     "longonly3": {
       "signed_rank_weights": [
@@ -218,10 +219,14 @@
     }
   },
   "timing": {
-    "rebalance": "monthly",
-    "decision_cutoff": "calendar month-end 23:59:59 America/New_York",
+    "rebalance": [
+      "weekly",
+      "monthly",
+      "quarterly"
+    ],
+    "decision_cutoff": "Friday, calendar month-end or quarter-end 23:59:59 America/New_York",
     "execution": "following exchange-session close",
-    "holding_period": "execution to next monthly execution",
+    "holding_period": "execution to next scheduled execution",
     "warmup_separate_from_evaluation": true,
     "partial_final_period": "excluded",
     "complete_daily_histories_required": true,
@@ -244,12 +249,19 @@
   },
   "metrics": {
     "cagr": "(final_nav/initial_nav)^(365.25/elapsed_days)-1",
-    "volatility": "sample_std(completed monthly returns)*sqrt(12)",
-    "sharpe": "mean(monthly net return - matching DFF cash return)/sample_std(excess)*sqrt(12)",
+    "volatility": "sample_std(completed cycle returns)*sqrt(periods_per_year)",
+    "sharpe": "mean(cycle net return - matching DFF cash return)/sample_std(excess)*sqrt(periods_per_year)",
     "cash_reference": "interval-compounded DFF ACT/365 using available prior-close rates",
-    "drawdown": "monthly sampled equity drawdown plus terminal insolvency point",
+    "drawdown": "daily marked NAV, with exact calendar-month sampled compatibility metric",
     "zero_variance": "null with metric_status reason",
-    "ruin": "cagr/sharpe/volatility/hit_rate unavailable; total return -1"
+    "ruin": "cagr/sharpe/volatility/hit_rate unavailable; total return -1",
+    "periods_per_year": {
+      "weekly": 52,
+      "monthly": 12,
+      "quarterly": 4
+    },
+    "annual_returns": "calendar-year NAV returns from daily marks; initial/final incomplete years explicitly marked",
+    "rolling_excess": "trailing calendar-year strategy return minus SPY return; previous available session at lookback date"
   },
   "controls": {
     "modes": [
@@ -259,7 +271,9 @@
       "compare"
     ],
     "rebalance": [
-      "monthly"
+      "weekly",
+      "monthly",
+      "quarterly"
     ],
     "cost_bps_range": [
       0,
@@ -269,11 +283,31 @@
       0,
       10000
     ],
-    "top_n_customization": false
+    "top_n_customization": true,
+    "top_n_range": [
+      1,
+      5
+    ]
   },
   "validation": {
     "tests": "tests/test_engine.py",
     "empirical_validation": "not_established",
     "synthetic_production_fallback": false
+  },
+  "research": {
+    "robustness": "ranked Top1/3/5 x weekly/monthly/quarterly; dates explicitly reported per grid cell",
+    "cost_sensitivity_bps": [
+      0,
+      10,
+      25,
+      50
+    ],
+    "regimes": "decision-time: stress if vol or credit>=0.5; else inflation if inflation>=0.5; else low_stress if both vol and credit<0; else balanced",
+    "rank_persistence": "mean consecutive Spearman deterministic full ranks",
+    "holding_duration": "mean observed signed-position spell days, boundary-censored",
+    "score_attribution": "gross-normalized mean basket score points, not causal realized PnL",
+    "realized_attribution": "sector dollar PnL / initial NAV; less actual costs reconciles total return before insolvency cap",
+    "chart_publication": "400-point extrema-preserving sampling; metrics use full daily marks",
+    "ranking_return_means": "arithmetic top, bottom and top-minus-bottom unlevered total returns over complete selected-frequency cycles; excludes incomplete terminal cycles"
   }
 }

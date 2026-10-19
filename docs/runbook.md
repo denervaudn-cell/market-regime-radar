@@ -1,5 +1,13 @@
 # Operation, verification and recovery
 
+## Explicit mock preview
+
+`RADAR_DATA_MODE=mock` selects the deterministic 62-series generator; `RADAR_MOCK_SEED` chooses a scenario (default 8042). Start with `npm run dev:mock` or `RADAR_DATA_MODE=mock uv run uvicorn app:app --host 127.0.0.1 --port 8000`. Unset `RADAR_DATASET_PATH` and `RADAR_DATASET_URL` first: selecting both modes is a startup error. No provider/database requests are made in mock mode. The generator has one owned worker, coalesces consumers, drains on shutdown and refreshes only when the completed session changes.
+
+The preview labels all simulated inputs, calculated regimes and performance. Source kind, label and seed are included in the immutable snapshot identity and every calculated response/export. To save a reproducible mock file explicitly, run `uv run python scripts/generate_mock_data.py /tmp/radar-mock.json --seed 8042 --as-of 2026-10-16`; the command refuses an existing output file. Do not use synthetic results as production validation evidence.
+
+To switch to the extended data_mesh feed, set `RADAR_DATA_MODE=real` (the default) and configure a snapshot path or HTTPS URL. The generator never runs as an error fallback. All calculations use the same snapshot interfaces in either mode.
+
 ## Data publication
 
 The shared data producer owns provider entitlements, instrument mappings, original observation/availability timestamps, revisions, quoted-price and total-return semantics, and scheduled refresh. The radar consumes that distribution; it makes no direct Twelve Data/FRED/FMP/Bloomberg requests. `data_mesh` upstream extensions are not implemented in this repository.

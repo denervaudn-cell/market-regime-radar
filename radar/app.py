@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import time
 import traceback
 import uuid
@@ -23,14 +24,52 @@ from pydantic import ValidationError
 from starlette.exceptions import HTTPException
 
 from radar import __version__
+from radar.analytics import market_analytics
 from radar.data import DataError, DatasetStore
 from radar.engine import BacktestParams, run_backtest
 from radar.market import market_snapshot
+from radar.mock import DEFAULT_SEED, MockDatasetStore
+from radar.studies import run_studies
 
 ROOT = Path(__file__).resolve().parent.parent
 LOGGER = structlog.get_logger("radar.http")
-ALIASES = {"costBps": "cost_bps", "shortBorrowBps": "short_borrow_bps"}
-PARAMETERS = {"start", "end", "mode", "cost_bps", "short_borrow_bps", "rebalance"}
+ALIASES = {"costBps": "cost_bps", "shortBorrowBps": "short_borrow_bps", "topN": "top_n"}
+PARAMETERS = {"start", "end", "mode", "cost_bps", "short_borrow_bps", "rebalance", "top_n"}
+
+
+def configured_store():
+	"""Select mock inputs only by explicit configuration, never on provider failure."""
+	mode = os.environ.get("RADAR_DATA_MODE", "real")
+	if mode not in {"real", "mock"}:
+		raise ValueError("RADAR_DATA_MODE must be real or mock")
+	if mode == "mock":
+		if os.environ.get("RADAR_DATASET_PATH") or os.environ.get("RADAR_DATASET_URL"):
+			raise ValueError("Unset real snapshot paths/URLs before choosing RADAR_DATA_MODE=mock")
+		seed_text = os.environ.get("RADAR_MOCK_SEED", str(DEFAULT_SEED))
+		if not seed_text.isascii() or not seed_text.isdigit() or not 0 <= int(seed_text) < 2**32:
+			raise ValueError("RADAR_MOCK_SEED must be an integer from 0 through 4294967295")
+		return MockDatasetStore(seed=int(seed_text))
+	return DatasetStore()
+
+
+def source_metadata(dataset) -> dict:
+	"""Carry explicit synthetic origin through every calculated result and export."""
+	source = getattr(dataset, "source", None)
+	return (
+		source.model_dump(mode="json")
+		if source
+		else {
+			"kind": "real",
+			"label": "Configured data_mesh snapshot",
+			"seed": None,
+		}
+	)
+
+
+def publish_result(function: Callable, dataset, *args) -> dict:
+	result = function(dataset, *args)
+	result["source"] = source_metadata(dataset)
+	return result
 
 
 class WorkBudget:
@@ -49,6 +88,9 @@ class WorkBudget:
 			await asyncio.wait_for(self.slots.acquire(), timeout=0.1)
 		except TimeoutError as exc:
 			raise DataError("busy", "Research capacity is busy; retry shortly.") from exc
+		if self.closed:
+			self.slots.release()
+			raise DataError("service_shutting_down", "Research service is shutting down.")
 		task = asyncio.create_task(asyncio.to_thread(function, *args))
 		self.workers.add(task)
 
@@ -130,7 +172,11 @@ def parse_backtest_params(request: Request) -> BacktestParams:
 			raise DataError("invalid_parameters", f"Unsupported parameter: {name[:64]}")
 		if name in values:
 			raise DataError("invalid_parameters", f"Parameter must occur once: {name}")
-		if name in {"cost_bps", "short_borrow_bps"}:
+		if name == "top_n":
+			if not value.isascii() or not value.isdigit() or len(value) > 2:
+				raise DataError("invalid_parameters", "top_n must be an integer from 1 through 5.")
+			values[name] = int(value)
+		elif name in {"cost_bps", "short_borrow_bps"}:
 			try:
 				number = float(value)
 			except ValueError as exc:
@@ -160,7 +206,7 @@ def create_app(store=None) -> FastAPI:
 
 	@asynccontextmanager
 	async def lifespan(application: FastAPI):
-		application.state.store = store if store is not None else DatasetStore()
+		application.state.store = store if store is not None else configured_store()
 		application.state.work = WorkBudget()
 		application.state.results = ResultCache()
 		try:
@@ -252,7 +298,7 @@ def create_app(store=None) -> FastAPI:
 		if request.query_params:
 			raise DataError("invalid_parameters", "Market endpoint accepts no query parameters.")
 		dataset = await request.app.state.store.get()
-		result = await request.app.state.work.run(market_snapshot, dataset)
+		result = await request.app.state.work.run(publish_result, market_snapshot, dataset)
 		ready = result.get("status") == "ready"
 		return JSONResponse(
 			jsonable_encoder(result),
@@ -260,28 +306,51 @@ def create_app(store=None) -> FastAPI:
 			headers={"Cache-Control": "private, max-age=30" if ready else "no-store"},
 		)
 
-	params_schema = BacktestParams.model_json_schema()
+	@application.get("/api/analytics")
+	async def analytics(request: Request):
+		if request.query_params:
+			raise DataError("invalid_parameters", "Analytics endpoint accepts no query parameters.")
+		dataset = await request.app.state.store.get()
+		# Current analytics have a short freshness window, even for an unchanged file.
+		key = f"analytics:{dataset.dataset_id}:{int(time.time() // 30)}"
+		result = await request.app.state.results.get(
+			key, lambda: request.app.state.work.run(publish_result, market_analytics, dataset)
+		)
+		ready = result.get("status") in {"ready", "partial"}
+		return JSONResponse(
+			result, status_code=200 if ready else 503, headers={"Cache-Control": "no-store"}
+		)
 
-	@application.get(
-		"/api/backtest",
-		openapi_extra={
-			"parameters": [
-				{
-					"name": name,
-					"in": "query",
-					"required": name in params_schema.get("required", []),
-					"schema": schema,
-				}
-				for name, schema in params_schema["properties"].items()
-			]
-		},
-	)
+	params_schema = BacktestParams.model_json_schema()
+	parameter_docs = {
+		"parameters": [
+			{
+				"name": name,
+				"in": "query",
+				"required": name in params_schema.get("required", []),
+				"schema": schema,
+			}
+			for name, schema in params_schema["properties"].items()
+		]
+	}
+
+	@application.get("/api/backtest", openapi_extra=parameter_docs)
 	async def backtest(request: Request):
 		params = parse_backtest_params(request)
 		dataset = await request.app.state.store.get()
-		key = f"{dataset.dataset_id}:{params.model_dump_json()}"
+		key = f"backtest:{dataset.dataset_id}:{params.model_dump_json()}"
 		result = await request.app.state.results.get(
-			key, lambda: request.app.state.work.run(run_backtest, dataset, params)
+			key, lambda: request.app.state.work.run(publish_result, run_backtest, dataset, params)
+		)
+		return JSONResponse(result, headers={"Cache-Control": "private, no-cache"})
+
+	@application.get("/api/studies", openapi_extra=parameter_docs)
+	async def studies(request: Request):
+		params = parse_backtest_params(request)
+		dataset = await request.app.state.store.get()
+		key = f"studies:{dataset.dataset_id}:{params.model_dump_json()}"
+		result = await request.app.state.results.get(
+			key, lambda: request.app.state.work.run(publish_result, run_studies, dataset, params)
 		)
 		return JSONResponse(result, headers={"Cache-Control": "private, no-cache"})
 
@@ -297,6 +366,7 @@ def create_app(store=None) -> FastAPI:
 				"version": __version__,
 				"dataset_id": dataset.dataset_id,
 				"as_of": dataset.as_of.isoformat(),
+				"source": source_metadata(dataset),
 			},
 			status_code=200 if ready else 503,
 			headers={"Cache-Control": "no-store"},

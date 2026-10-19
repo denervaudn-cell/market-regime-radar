@@ -1163,3 +1163,115 @@ footer a {
 #coverage-content p {
   overflow-wrap:anywhere
 }
+.mock-notice {
+  border-color:#8d743e;
+  background:linear-gradient(110deg,#322b1c,#1c2228);
+  color:#f0d99e
+}
+.mock-notice strong {
+  display:block;
+  font-size:12px;
+  letter-spacing:.4px;
+  margin-bottom:7px
+}
+#source-indicator,.mock-source {
+  color:var(--amber)
+}
+.source-note {
+  font-size:11px;
+  margin:8px 0 14px;
+  overflow-wrap:anywhere
+}
+.analytics-group {
+  margin-top:20px
+}
+.analytical-card .card-heading {
+  margin-bottom:12px
+}
+.analysis-summary {
+  color:#bdcbd9;
+  font-size:12px;
+  max-width:1000px;
+  line-height:1.8
+}
+.analytical-metrics {
+  grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
+  margin:16px 0 2px
+}
+.analytical-metrics .value {
+  font-size:20px;
+  overflow-wrap:anywhere;
+  line-height:1.4
+}
+.analytical-figure {
+  margin:24px 0 16px
+}
+.analytical-figure figcaption,.analysis-table h4,.study-output h4 {
+  font-size:12px;
+  font-weight:500;
+  color:#cdd9e5;
+  margin:22px 0 12px
+}
+.analysis-table .data-table td {
+  max-width:360px;
+  white-space:normal;
+  min-width:75px
+}
+.analysis-table .data-table td:first-child {
+  min-width:110px
+}
+.analysis-table .data-table th {
+  white-space:normal;
+  min-width:75px
+}
+.study-output {
+  border-top:1px solid var(--border);
+  padding-top:12px
+}
+.study-output .small,.study-methodology {
+  overflow-wrap:anywhere
+}
+.study-methodology {
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.8
+}
+.studies-control .card-heading {
+  align-items:flex-start;
+  margin-bottom:10px
+}
+.studies-control .card-heading p {
+  margin-top:8px;
+  max-width:580px
+}
+.studies-control .button {
+  flex-shrink:0
+}
+#analytics-error,#study-error {
+  margin-top:18px
+}
+.evidence-card .analytical-metrics {
+  grid-template-columns:repeat(3,minmax(0,1fr))
+}
+@media(max-width:1100px) {
+  .evidence-card .analytical-metrics {
+    grid-template-columns:1fr
+  }
+}
+@media(max-width:760px) {
+  .evidence-card .analytical-metrics {
+    grid-template-columns:repeat(3,minmax(0,1fr))
+  }
+  .evidence-card .metric {
+    padding:10px
+  }
+  .evidence-card .metric .value {
+    font-size:18px
+  }
+  .studies-control .card-heading {
+    flex-direction:column
+  }
+  .analysis-table .data-table td {
+    min-width:100px
+  }
+}
