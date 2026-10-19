@@ -1,0 +1,15 @@
+.venv
+node_modules
+.git
+.env*
+.DS_Store
+data
+tests
+.review-summary
+test-results
+playwright-report
+.pytest_cache
+.ruff_cache
+*.zip
+*.pem
+*.key

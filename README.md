@@ -1,224 +1,87 @@
-# Market Regime Radar V4 — live-data ready
+# Market Regime Radar
 
-## V4
-- `/api/market` Vercel serverless endpoint
-- Twelve Data daily market series (SPY, QQQ, XLF, XLK, XLE, GLD, USO, UUP)
-- FRED US Treasury series (DGS2, DGS5, DGS10, DGS30)
-- automatic 1D / 20D changes
-- daily-return z-score and empirical percentile
-- rolling 20-day correlation matrix
-- live Treasury curve
-- automatic DEMO fallback if API keys are missing or a provider fails
+V5 is a daily market dashboard and reproducible sector-rotation research tool. A single Python engine consumes versioned snapshots from Apollo's data distribution. The static frontend contains no financial scoring logic and no invented market or backtest values.
 
-## Vercel environment variables
-Add:
-- `TWELVE_DATA_API_KEY`
-- `FRED_API_KEY`
+**The extended data_mesh feed is an external prerequisite.** Without a configured, validated snapshot, the application starts and clearly reports data unavailable. It does not fall back to a demo. The legacy sector scoring rules remain explicitly unvalidated research assumptions; the old directional risk-bias score is withheld pending model review.
 
-Do not put API keys in index.html.
+## Run locally
 
-## Next
-Add Cboe volatility ingestion (VIX/VIX9D/VIX3M/VVIX) and credit series, then feed the live values into Anomaly Engine / What Changed Today.
+Requirements: Python 3.13+, [uv](https://docs.astral.sh/uv/). Node 24+ is needed only for browser tests and the optional legacy Node handlers.
 
+```bash
+uv sync --locked
+export RADAR_DATASET_PATH=/absolute/path/to/published/radar.json
+uv run uvicorn app:app --host 127.0.0.1 --port 8000
+```
 
-## V4.1
-- Today's Market Narrative ajoute un **Risk Bias** explicite: BULLISH / NEUTRAL / BEARISH
-- conviction en %
-- principaux facteurs expliquant le biais
+Open **http://127.0.0.1:8000/**. Opening `index.html` directly displays connection guidance; a file URL cannot supply the Python API. `.env.example` documents settings; the application does not automatically load `.env` files. For a remote snapshot, configure `RADAR_DATASET_URL` instead of a local path. Optional `RADAR_DATASET_TOKEN` is a server-side bearer token for that distribution endpoint.
 
-## V4.2
-- Risk Bias devient dynamique
-- BULLISH / NEUTRAL / BEARISH calculé automatiquement
-- conviction en % calculée à partir de l'amplitude du score
-- pondération multi-facteurs : momentum actions, choc taux, stress de corrélation, volatilité, crédit et USD
-- le bloc Today’s Market Narrative se met à jour avec les données de `/api/market`
+## Data and capabilities
 
-## V4.3
-- Risk Bias multi-horizon
-- 1 DAY / 1 WEEK / 1 MONTH
-- chaque horizon affiche BULLISH / NEUTRAL / BEARISH + conviction
-- détection des divergences entre court terme et régime de fond
-- message d'alignement si les 3 horizons pointent dans la même direction
+The core universe is 16 ETFs: the eleven US sector funds XLB/XLC/XLE/XLF/XLI/XLK/XLP/XLRE/XLU/XLV/XLY, plus SPY/QQQ/GLD/USO/UUP. Supply separate USD quoted closes and consistently defined total-return indices. The nine macro series are DGS2/DGS5/DGS10/DGS30/DFII10/T10YIE/VIXCLS/BAMLH0A0HYM2/DFF. No fundamental or company technology-edge scoring is implemented.
 
-## V4.4
-- Regime Divergence Alert
-- LOW / MID / HIGH divergence classification
-- highlights conflicts between 1D, 1W and 1M risk bias
-- identifies possible transition regimes instead of treating every short-term shock as structural
+| Capability | Behavior |
+|---|---|
+| Market observations | Actual quoted prices, sources, observation dates and per-series freshness |
+| Changes, momentum and correlations | Date-aligned return histories; insufficient or incompatible data remains unavailable |
+| Treasury, volatility and FX views | Show only supplied or validly derived observations; optional coverage is explicit |
+| Historical backtests | Three explicit strategies, shared dataset, dated availability, delayed execution and complete daily histories |
+| Comparison and holdings | Actual returned curves, signed weights, costs and period outcomes |
+| Directional Risk Bias | Unavailable pending model review; actual underlying observations remain visible |
+| Historical analogues, robustness and recommendations | No fabricated output or claims; unsupported analytics are clearly unavailable |
 
-## V4.5 — Volatility Regime Dashboard
-- implied vs realized volatility
-- realized vol 5D / 10D / 20D / 60D
-- volatility risk premium (IV - RV)
-- IV/RV ratio and historical percentile
-- short-term realized-vol acceleration
-- term structure diagnostics
-- VVIX, SKEW, MOVE/VIX
-- volatility regime classification: LOW/CHEAP, NORMAL, RICH, STRESS, PANIC
-- automatic volatility narrative and vol bias
+The backtest modes are:
 
-## V4.6 — Rates Regime Dashboard
-- richer Treasury curve analytics
-- 2s10s / 5s30s / 2s30s / 10s30s
-- level / slope / curvature decomposition
-- nominal vs real yield decomposition
-- 5Y / 10Y breakevens and 5Y5Y inflation
-- MOVE integration
-- rates regime map
-- BULL/BEAR STEEPENER and FLATTENER classification
-- duration bias and confidence
-- automatic rates narrative
+- `extreme1`: +200% highest-ranked sector and −200% lowest-ranked sector.
+- `ranked3`: +50/+25/+25% in the best three and −50/−25/−25% in worst-first order.
+- `longonly3`: +100/+65/+45% in the best three, with the extra long notional financed.
+- `compare`: all three concrete strategies on exactly the same validated dataset.
 
-## V4.7 — Sector Allocation Engine
-- translates macro/rates/volatility regime into equity-sector preferences
-- sector score 0-100
-- OVERWEIGHT / NEUTRAL / UNDERWEIGHT classification
-- factor contribution by rates, inflation, volatility, credit and momentum
-- style rotation view: Value / Quality / Low Vol / Growth / High Beta / Bond Proxies
-- automated sector narrative and portfolio translation
+Monthly decisions occur after month end, with execution at the next exchange-session close. Evaluation dates are separate from model warm-up; the response reports first execution and actual complete return periods. Fees cover both signed legs, rank changes, drift rebalancing, entry and final liquidation. Funding/borrow accrues over actual elapsed days. Insolvency is terminal. See the precise [financial model](docs/model.md) and versioned [specification](engine-spec.json) before interpreting results.
 
-## V4.8 — Sector Allocation Backtest
-- Top-N sector long-only backtest
-- Top-N long / Bottom-N short strategy
-- benchmark comparison
-- CAGR / Sharpe / max drawdown / hit rate / turnover
-- annual excess return
-- performance attribution
-- robustness checklist
-- current values are illustrative until full historical point-in-time data are connected
+## Source and API ownership
 
-## V4.9 — Real Historical Backtest Engine
-- removes illustrative backtest numbers from the UI
-- `/api/backtest` downloads sector ETF histories and macro series
-- point-in-time monthly scoring
-- signals formed at month-end t, returns earned from t to t+1
-- Top 3 long-only and Top 3 minus Bottom 3
-- transaction costs included
-- real CAGR / volatility / Sharpe / drawdown / hit rate / turnover
-- FRED macro series: DGS2, DGS10, DFII10, T10YIE, VIXCLS, BAMLH0A0HYM2
-- requires `TWELVE_DATA_API_KEY`
+```text
+shared provider ingestion → data_mesh snapshot → radar/data.py
+                                              ├─ radar/market.py
+                                              └─ radar/engine.py
+                                                        ↓
+                                              radar/app.py → browser
+```
 
-## V4.9.1 — Backtest visibility fix
-- backtest tab now always renders
-- embedded browser fallback if `/api/backtest` is unavailable
-- clear DEMO FALLBACK label until the real API is connected
-- Run backtest button added
-- real calculations replace fallback automatically when the API succeeds
+`app.py` is the deployed FastAPI entry point. `data_mesh` remains a private Python access library; this project defines the snapshot interface its extended producer must publish. The radar does not invent a nonexistent data_mesh HTTP API or fetch paid providers on each request. See [data contract and publisher](docs/data-contract.md).
 
-## V4.10 — Rotation History & Robustness
-- historical Top 3 / Bottom 3 sector holdings
-- regime shown for each rebalance
-- rolling 12M excess return
-- strategy vs benchmark drawdowns
-- Top-N / rebalance-frequency robustness matrix
-- transaction-cost sensitivity
-- regime-conditioned hit rates
-- real API endpoint now returns recent holdings history too
+| Endpoint | Contract |
+|---|---|
+| `GET /api/market` | Current observations and coverage; HTTP 503 when core data is stale/unavailable |
+| `GET /api/backtest` | Required `start=YYYY-MM-DD`; optional `end`, `mode`, `cost_bps`, `short_borrow_bps`, `rebalance=monthly` |
+| `GET /api/health` | Data readiness, dataset identity and application version |
+| `GET /api/model` | The versioned research specification |
+| `GET /api/openapi.json` | Machine-readable route and parameter schema |
 
-## V4.11 — Regime Playbook
-- converts macro regime into sector/style actions
-- current playbook: favor / neutral / avoid
-- regime matrix across rates, volatility and credit combinations
-- conviction score
-- scenario triggers that invalidate or change the playbook
-- signal hierarchy / factor weights
-- actionable conclusion and guardrails
+Costs default to 10 bps per one-way traded notional; annual short borrow defaults to 50 bps. Zero is valid. Invalid/duplicate/unknown parameters return 400 before data acquisition; unsupported methods return 405. `costBps` and `shortBorrowBps` are accepted migration aliases. No `topN` or unsupported rebalance frequency is accepted. Responses identify immutable dataset, model, requested parameters, actual period, and concrete strategy identities. Non-finite results cannot be published.
 
-## V4.12 — FX Regime Dashboard
-- FX correlation matrix
-- EURUSD / USDJPY / USDCHF / GBPUSD / AUDUSD / USDCAD / USDCNH / AUDJPY
-- FX vs SPX / Gold / Copper / Oil / real yields
-- Dollar Regime Score
-- Risk FX Score
-- FX regime narrative
-- FX contribution integrated into Regime Playbook
+## Check changes
 
-## V4.13 — Conviction-Weighted Backtest
-- Top 1 sector = 50%
-- Top 2 sector = 25%
-- Top 3 sector = 25%
-- same weighting on the short side
-- long gross exposure = 100%
-- short gross exposure = 100%
-- net exposure = 0%
-- gross exposure = 200%
+```bash
+npm ci
+npm run check
+npm test
+npm run test:legacy
+npx playwright install chromium
+npm run test:ui
+uv run pip-audit
+npm audit
+```
 
-## V4.14 — Extreme Conviction Backtest
-- selectable mode: +200% best-ranked sector / -200% worst-ranked sector
-- net exposure = 0%
-- gross exposure = 400%
-- keeps the 50/25/25 Top3 vs Bottom3 mode for comparison
+No live provider/database credentials are needed for tests. `uv.lock` and `package-lock.json` record resolved dependencies. Browser charts use native SVG; no CDN JavaScript executes in the page. CI runs financial, data, HTTP, lint, dependency and real-browser checks.
 
-## V4.15 — Extreme Best vs Worst is now the default
-- primary backtest = +200% long sector ranked #1
-- primary short = -200% sector ranked last
-- net exposure = 0%
-- gross exposure = 400%
-- Top3/Bottom3 mode kept only as a comparison option
+## Operations and review
 
-## V4.16 — Backtest controls fix
-- Run backtest now reads Start / Rebalance / Top-N / Costs / Mode from the UI
-- cache-busting added so repeated runs actually refresh
-- button shows Running… while the request is executing
-- status line shows the selected parameters
-- live engine currently supports monthly rebalance; weekly/quarterly now return a clear message instead of silently doing nothing
+- [Runbook, deployment checks, limits and rollback](docs/runbook.md)
+- [Finding-by-finding remediation](REMEDIATION.md)
+- [Original 23-finding audit](IMPROVEMENTS.md)
+- [data_mesh coverage assessment before the revamp](.review-summary/data-mesh-fit.md)
+- [Historical V4 release notes](docs/legacy-release-history.md)
 
-## V4.17 — Top 1 / Bottom 1 explicit
-- backtest UI now explicitly shows Top 1 Long and Bottom 1 Short
-- Top 1 = +200%
-- Bottom 1 = -200%
-- latest ranked sectors displayed directly in KPI cards
-- net exposure = 0%, gross exposure = 400%
-
-## V4.18 — Extreme Ranking Diagnostics
-- live ranking stability
-- average Top 1 / Bottom 1 holding duration
-- average best-vs-worst spread
-- Top 1 beats Bottom 1 hit rate
-- positive spread after costs
-- long-side vs short-side contribution
-
-## V4.19 — Backtest truly interactive
-All selectors now recalculate charts and KPIs. Weekly/monthly/quarterly work locally; monthly can upgrade to live API data.
-
-## V4.20 — Real S&P 500 benchmark direction
-- local fallback no longer invents the S&P 500 annual direction
-- historical annual S&P 500 returns anchor the benchmark
-- 2021 is positive (+28.7% total return)
-- 2022 is negative (-18.1% total return)
-- live API remains the preferred source for the exact daily/monthly path
-
-## V4.21 — Real-data-only backtest
-- simulated performance removed
-- no fallback equity curve
-- requires TWELVE_DATA_API_KEY + FRED_API_KEY
-- sector and SPY prices requested with `adjust=all` (splits + dividends)
-- full 11-sector universe constrained to XLC inception: 2018-06-19
-- real funding cost uses FRED Effective Federal Funds Rate (DFF)
-- short borrow cost is explicit and user-selectable
-- if any required series is unavailable, UI displays Data unavailable
-
-## V4.22 — FRED key removed
-- only `TWELVE_DATA_API_KEY` is required
-- FRED macro and funding series load from public CSV endpoints
-- no `FRED_API_KEY` needed
-- real-data-only backtest policy remains unchanged
-
-## V4.23 — Backtest runner isolated
-- Run backtest has its own standalone JavaScript runner
-- button no longer depends on the rest of the dashboard JS
-- API errors are shown directly in the backtest status line
-- API non-JSON responses are surfaced instead of failing silently
-- real result charts are redrawn independently
-
-## V4.24 — Separate Long Only Backtest
-Top 1 100%, Top 2 65%, Top 3 45%; 210% total long exposure; no shorts; 110% excess notional financed at historical Fed Funds.
-
-## V4.25 — Strategy Compare
-Direct comparison of Extreme Long/Short, leveraged Long Only 100/65/45 and SPY on identical periods and cost assumptions.
-
-## V4.26 — Shared Data Backtest
-- comparison mode loads ETF/macro history once
-- both Long/Short and Long Only are computed from the same in-memory dataset
-- reduces Twelve Data calls and rate-limit failures
-- comparison uses one API request instead of two
+Rollback tag: **`pre-revamp-2026-10-19`**, preserved on origin at `6b1e466d2e475addccbb7e7eed69f2a871f938ce`. Current work is on `codex/radar-revamp`. No shared database migration or production deployment is performed by these source changes.

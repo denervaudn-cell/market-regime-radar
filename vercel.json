@@ -1,10 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
   "functions": {
-    "api/market.js": {
+    "app.py": {
       "maxDuration": 30
-    },
-    "api/backtest.js": {
-      "maxDuration": 60
     }
   }
 }

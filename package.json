@@ -1,12 +1,19 @@
 {
-  "name": "market-regime-radar-v4",
-  "version": "4.0.0",
+  "name": "market-regime-radar",
+  "version": "5.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "uv run uvicorn app:app --reload --host 127.0.0.1 --port 8000",
+    "test": "uv run pytest",
+    "test:ui": "playwright test",
+    "test:legacy": "node --test tests/legacy.test.js",
+    "check": "uv run ruff check . && uv run ruff format --check . && node --check static/app.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
-  "type": "module"
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
 }
