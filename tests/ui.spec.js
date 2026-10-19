@@ -30,6 +30,8 @@ function runFixture(url, datasetId = `sha256:${'a'.repeat(64)}`, cagr = .064) {
       holdings: [{ decision_date: '2020-01-31', execution_date: '2020-02-03', end_date: '2020-03-02', weights: mode === 'longonly3' ? { XLK: 1, XLF: .65, XLE: .45 } : mode === 'ranked3' ? { XLK: .5, XLF: .25, XLE: .25, XLU: -.5, XLRE: -.25, XLV: -.25 } : { XLK: 2, XLU: -2 }, turnover: 4, trading_cost: .004, funding_cost: .001, borrow_cost: .001, period_return: .1 }],
       diagnostics: { convention: 'Test fixture only' }, assumptions: ['Synthetic test fixture. Never published as production data.'],
     };
+    results[mode].holdings[0].scores = [{ symbol: 'XLK', score: 72.5 }, { symbol: 'XLU', score: 28.25 }];
+    results[mode].holdings[0].state = { rates: -.25, curve: .5, inflation: .1, vol: -.2, credit: .15 };
   }
   return { ok: true, dataset_id: datasetId, model_version: 'test-model-v5', params, period: { requested_start: params.start, requested_end: params.end, warmup_start: '2018-12-31', first_decision: '2020-01-31', first_execution: '2020-02-03', first_return: '2020-03-02', last_complete_return: '2021-02-01', excluded_partial: true, complete_periods: 12 }, results };
 }
@@ -55,6 +57,10 @@ test('repeated runs replace every result and preserve zero-cost assumptions', as
   await page.goto('/');
   await run(page);
   await expect(page.locator('[data-metric="cagr"] .value')).toHaveText('6.40%');
+  await expect(page.locator('[data-metric="hit_rate"] .label')).toHaveText('Periods outperforming SPY');
+  await expect(page.locator('[data-metric="hit_rate"] .value')).toHaveText('60.00%');
+  await page.getByText('Decision scores and macro states', { exact: true }).click();
+  await expect(page.locator('#run-results')).toContainText('XLK: 72.50 · XLU: 28.25');
   await expect(page.locator('#run-results svg')).toHaveCount(1);
   await run(page);
   await expect(page.locator('[data-metric="cagr"] .value')).toHaveText('9.10%');

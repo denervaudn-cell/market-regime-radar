@@ -359,7 +359,7 @@
     ['cagr', 'Annualized return', percent], ['annualized_volatility', 'Annualized volatility', percent],
     ['sharpe', 'Sharpe · excess returns', number], ['max_drawdown_monthly', 'Monthly drawdown', percent],
     ['total_return', 'Total return', percent], ['benchmark_total_return', 'SPY total return', percent],
-    ['hit_rate', 'Positive periods', percent], ['annualized_turnover', 'Annual turnover', percent],
+    ['hit_rate', 'Periods outperforming SPY', percent], ['annualized_turnover', 'Annual turnover', percent],
   ];
 
   function renderMetrics(stats) {
@@ -451,7 +451,7 @@
       ], `${strategyLabels[mode]} and SPY equity curve`));
       card.append(details(`Executed holdings · ${result.holdings.length} periods`, renderHoldings(result.holdings)));
       card.append(details('Decision scores and macro states', table(['Decision', 'Sector scores', 'Normalized macro states'], result.holdings.map((row) => {
-        const scores = element('span', 'weights', Object.entries(row.scores || {}).map(([symbol, value]) => `${symbol}: ${number(value)}`).join(' · ') || 'Unavailable');
+        const scores = element('span', 'weights', list(row.scores).map((entry) => `${text(entry.symbol)}: ${number(entry.score)}`).join(' · ') || 'Unavailable');
         const states = element('span', 'weights', Object.entries(row.state || {}).map(([factor, value]) => `${factor}: ${number(value)}`).join(' · ') || 'Unavailable');
         return [date(row.decision_date), scores, states];
       }))));
