@@ -8,6 +8,8 @@
   <title>Market Regime Radar</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="static/app.css">
+  <link rel="stylesheet" href="static/charts.css">
+  <script src="static/charts.js" defer></script>
   <script src="static/app.js" defer></script>
 </head>
 <body>
@@ -20,7 +22,7 @@
     <aside class="sidebar">
       <p class="eyebrow">Workspace</p>
       <nav aria-label="Main navigation">
-        <a href="#overview"><span aria-hidden="true">01</span> Overview</a>
+        <a href="#overview" aria-current="location"><span aria-hidden="true">01</span> Signal overview</a>
         <a href="#markets"><span aria-hidden="true">02</span> Market evidence</a>
         <a href="#regimes"><span aria-hidden="true">03</span> Regime analysis</a>
         <a href="#sectors"><span aria-hidden="true">04</span> Sector positioning</a>
@@ -28,7 +30,7 @@
         <a href="#coverage"><span aria-hidden="true">06</span> Data coverage</a>
         <a href="#methodology"><span aria-hidden="true">07</span> Methodology</a>
       </nav>
-      <div class="sidebar-note"><span class="small-dot"></span> Evidence before conviction<p>Daily observations.<br>Explicit assumptions.<br>Traceable results.</p></div>
+      <div class="sidebar-note"><span class="small-dot"></span> Follow the signals<p>Direction. Disagreement.<br>Unusual moves.<br>Evidence behind every view.</p></div>
     </aside>
     <main id="main">
       <div id="mock-notice" class="notice mock-notice" role="status" hidden><strong>MOCK DATA · Real calculations, simulated inputs</strong><p id="mock-description">This research workspace is using a reproducible synthetic dataset. All prices, regimes and performance are simulated.</p></div>
@@ -40,19 +42,21 @@
       </div>
       <noscript><div class="notice">Enable JavaScript and open this page through the Python server: <code>uv run uvicorn app:app --reload</code>.</div></noscript>
       <section id="overview" aria-labelledby="overview-title">
-        <div class="section-heading hero"><div><p class="eyebrow">A clearer view of the market</p><h1 id="overview-title">Market regime radar<span>.</span></h1><p class="lede">Connect market evidence to transparent sector research.</p></div><button id="refresh-market" class="button secondary" type="button">Refresh evidence <span aria-hidden="true">↻</span></button></div>
+        <div class="section-heading hero"><div><p class="eyebrow">The daily signal brief</p><h1 id="overview-title">What moves. What matters<span>.</span></h1><p class="lede">Read the regime. Spot the outliers. Follow the evidence.</p></div><button id="refresh-market" class="button secondary" type="button">Refresh evidence <span aria-hidden="true">↻</span></button></div>
         <div class="feed-line"><span id="market-status" class="badge" role="status">Waiting for dataset</span><span id="market-provenance">No observations loaded</span></div>
         <div id="market-error" class="notice" role="alert" hidden></div>
-        <div class="overview-grid"><article class="card bias-card"><div class="card-heading"><h2>Risk bias</h2><span class="tag">RESEARCH RULES</span></div><div id="risk-bias"><p class="unavailable">Unavailable</p><p class="muted">A validated dataset is required.</p></div></article><article class="card evidence-card"><div class="card-heading"><h2>Evidence behind the bias</h2><span class="muted">Daily inputs</span></div><div id="risk-factors" class="empty-state">No factors available yet.</div></article></div>
+        <div class="overview-grid"><article class="card bias-card"><div class="card-heading"><h2>Risk bias</h2><span class="tag">RESEARCH SIGNAL</span></div><div id="risk-bias"><p class="unavailable">Unavailable</p><p class="muted">A validated dataset is required.</p></div></article><article class="card evidence-card"><div class="card-heading"><h2>Across the horizons</h2><span class="muted">−100 to +100</span></div><div id="risk-factors" class="empty-state">No factors available yet.</div></article></div>
+        <div class="card-heading signal-heading"><h2>On the radar</h2><span class="muted">Follow a signal to its evidence ↗</span></div>
+        <div id="signal-board" class="signal-board" aria-label="Current signal highlights"><p class="empty-state">Waiting for calculated signals.</p></div>
+        <div class="signal-legend" aria-label="Signal color key"><span class="legend-key" data-tone="positive">↑ Positive direction / favored</span><span class="legend-key" data-tone="negative">↓ Negative direction / avoided</span><span class="legend-key" data-tone="warning">! Unusual / conflicting</span><span class="legend-key" data-tone="info">● Context / neutral</span></div>
         <div id="analytics-error" class="notice" role="alert" hidden></div>
         <div id="analytics-overview" class="analytics-group"></div>
       </section>
       <section id="markets" aria-labelledby="markets-title">
-        <div class="section-heading"><div><p class="eyebrow">The observations</p><h2 id="markets-title">Market evidence</h2></div><span class="section-note">Quoted closes · USD ETF proxies</span></div>
+        <div class="section-heading"><div><p class="eyebrow">02 / Cross-asset pulse</p><h2 id="markets-title">Market evidence</h2></div><span class="section-note">Quoted closes · USD ETF proxies</span></div>
         <article class="card"><div class="card-heading"><h3>Cross-asset dashboard</h3><span class="muted">Changes use total-return indices</span></div><div id="assets-table" class="empty-state">No market observations loaded.</div></article>
-        <div class="two-column"><article class="card"><div class="card-heading"><h3>US Treasury curve</h3><span class="muted">Yield, %</span></div><div id="rates-content" class="empty-state">No rate observations loaded.</div></article><article class="card"><div class="card-heading"><h3>Cross-asset correlations</h3><span class="muted">Daily total returns</span></div><p class="small muted">Paired by matching observation intervals. Unavailable pairs remain blank.</p><div id="correlation-content" class="empty-state">No common history loaded.</div></article></div>
-        <div id="derived-panels" class="three-column"></div>
         <div id="analytics-markets" class="analytics-group"></div>
+        <details class="snapshot-details"><summary>Underlying observations &amp; source checks</summary><div class="two-column"><article class="card"><div class="card-heading"><h3>US Treasury observations</h3><span class="muted">Yield, %</span></div><div id="rates-content" class="empty-state">No rate observations loaded.</div></article><article class="card"><div class="card-heading"><h3>Cross-asset correlations</h3><span class="muted">Daily total returns</span></div><p class="small muted">Paired by matching observation intervals. Unavailable pairs remain blank.</p><div id="correlation-content" class="empty-state">No common history loaded.</div></article></div><div id="derived-panels" class="three-column"></div></details>
       </section>
       <section id="regimes" aria-labelledby="regimes-title">
         <div class="section-heading"><div><p class="eyebrow">See the wider pattern</p><h2 id="regimes-title">Regime analysis</h2></div><span class="badge research-badge">Descriptive research rules</span></div>

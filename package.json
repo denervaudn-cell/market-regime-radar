@@ -9,7 +9,7 @@
     "test": "uv run pytest",
     "test:ui": "playwright test",
     "test:legacy": "node --test tests/legacy.test.js",
-    "check": "uv run ruff check . && uv run ruff format --check . && node --check static/app.js"
+    "check": "uv run ruff check . && uv run ruff format --check . && node --check static/app.js && node --check static/charts.js"
   },
   "engines": {
     "node": ">=24"

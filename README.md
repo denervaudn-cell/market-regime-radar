@@ -4,6 +4,8 @@ V5 is a daily market dashboard and reproducible sector-rotation research tool. P
 
 **The current preview uses explicitly labelled mock inputs.** The same calculations and snapshot contract will consume the extended data_mesh feed. Sector coefficients and regime rules are unvalidated research assumptions; signal strength and historical similarity are not calibrated probabilities. Mock performance does not establish an investment edge.
 
+The signal overview prioritizes horizon direction and disagreement, the largest standardized daily move, volatility and sector leadership. Green/coral distinguish direction and preferences; amber marks disagreement or elevated readings; cyan provides context. Ordinary moves remain labelled ordinary, even when they are the day's largest. Charts have selectable series and pointer/keyboard inspection (arrow keys, Home/End). Primary evidence stays visible; complete tables, source identities and methodology remain expandable. Regime and severity classifications use the calculation API's published labels.
+
 ## Run locally
 
 Requirements: Python 3.13+, [uv](https://docs.astral.sh/uv/). Node 24+ is needed only for browser tests and the optional legacy Node handlers.

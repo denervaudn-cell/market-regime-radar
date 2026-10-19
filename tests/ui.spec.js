@@ -204,9 +204,10 @@ test('missing metrics stay unavailable and provider strings remain inert text', 
   await run(page);
   await expect(page.locator('[data-metric="sharpe"] .value')).toHaveText('Unavailable');
   await expect(page.locator('[data-metric="sharpe"] .reason')).toHaveText('zero_excess_variance');
-  const axisTicks = await page.locator('#run-results svg text').allTextContents();
-  expect(axisTicks.slice(0, 5)).toEqual(['98.50', '99.25', '100.00', '100.75', '101.50']);
-  await expect(page.locator('.bias-card .tag')).toHaveText('RESEARCH RULES');
+  const axisTicks = await page.locator('#run-results .chart-axis-label').allTextContents();
+  expect(axisTicks.some((value) => Number(value) === 100)).toBe(true);
+  await expect(page.locator('#run-results .chart-readout-values')).toContainText('100.00');
+  await expect(page.locator('.bias-card .tag')).toHaveText('RESEARCH SIGNAL');
   expect(await page.evaluate(() => window.injected)).toBeUndefined();
   await expect(page.locator('img')).toHaveCount(0);
 });
@@ -277,7 +278,7 @@ test('all analytical families render calculations, categorical charts and explic
   await page.locator('[data-analysis="rates"] summary').click();
   await expect(page.locator('[data-analysis="rates"] svg')).toBeVisible();
   await expect(page.locator('[data-analysis="rates"] svg')).toContainText('2Y');
-  await expect(page.locator('[data-analysis="rates"] svg circle')).toHaveCount(2);
+  await expect(page.locator('[data-analysis="rates"] .chart-observation')).toHaveCount(2);
   await expect(page.locator('[data-analysis="rates"] table')).toContainText('—');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download all analytics' }).click();
@@ -291,13 +292,122 @@ test('all analytical families render calculations, categorical charts and explic
 
 test('mismatched analytical snapshots are withheld without discarding valid market observations', async ({ page }) => {
   await mockMarket(page);
-  const fixture = analyticsFixture();
-  fixture.dataset_id = 'different-dataset';
-  await page.route('**/api/analytics', (route) => route.fulfill({ json: fixture }));
+  let calls = 0;
+  await page.route('**/api/analytics', (route) => {
+    const fixture = signalFixture();
+    if (++calls > 1) fixture.dataset_id = 'different-dataset';
+    return route.fulfill({ json: fixture });
+  });
   await page.goto('/');
+  await expect(page.locator('#signal-board .signal-card')).toHaveCount(4);
+  await expect(page.locator('#risk-factors .horizon-item')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Refresh evidence' }).click();
   await expect(page.locator('#analytics-error')).toContainText('did not match');
   await expect(page.locator('#assets-table')).toContainText('620.25');
   await expect(page.locator('[data-analysis]')).toHaveCount(0);
+  await expect(page.locator('#signal-board .signal-card')).toHaveCount(0);
+  await expect(page.locator('#risk-factors .horizon-item')).toHaveCount(0);
+});
+
+function signalFixture(severity = 'HIGH') {
+  const fixture = analyticsFixture();
+  fixture.sections.risk.summary = '1D: Neutral; 1W: Bearish; 1M: Bullish. MID horizon divergence. Strength is not a forecast probability.';
+  fixture.sections.risk.metrics = [
+    { label: '1D risk score', value: 10, unit: 'score' },
+    { label: '1W risk score', value: -30, unit: 'score' },
+    { label: '1M risk score', value: 40, unit: 'score' },
+    { label: 'Horizon divergence', value: 'MID', unit: 'text' },
+    { label: 'Horizon alignment', value: 'Conflicting horizon directions', unit: 'text' },
+  ];
+  const elevated = severity === 'HIGH';
+  fixture.sections.anomalies.metrics = [{ label: 'Elevated anomalies', value: elevated ? 2 : 0, unit: 'count' }];
+  fixture.sections.anomalies.tables = [{
+    title: 'Anomalies ranked by magnitude', columns: ['Series', 'Signed z', 'Percentile (%)', 'Severity', '1D change', 'Unit'],
+    rows: [['SPY', elevated ? 3.1 : 1.2, 97, severity, 1.2, '%'], ['TLT', elevated ? -4.1 : -1.8, 3, severity, -.5, '%']],
+  }];
+  fixture.sections.volatility.metrics = [
+    { label: 'Volatility regime', value: 'NORMAL', unit: 'text' },
+    { label: 'VIX implied volatility', value: 19.2, unit: 'percent' },
+    { label: 'IV−RV20 premium', value: 5, unit: 'percentage_points' },
+  ];
+  fixture.sections.sectors.metrics = [{ label: 'Top sector', value: 'XLU', unit: 'text' }, { label: 'Bottom sector', value: 'XLK', unit: 'text' }];
+  return fixture;
+}
+
+test('signal focus follows published direction and outlier severity rather than raw sign or rank', async ({ page }) => {
+  await mockMarket(page);
+  await page.route('**/api/analytics', (route) => route.fulfill({ json: signalFixture() }));
+  await page.goto('/');
+  await expect(page.locator('.risk-headline')).toHaveText('Short-term neutral');
+  await expect(page.locator('.horizon-direction')).toHaveText(['Neutral', 'Bearish', 'Bullish']);
+  await expect(page.locator('.horizon-value')).toHaveText(['+10.00', '-30.00', '+40.00']);
+  await expect(page.locator('.horizon-item').nth(0)).not.toHaveAttribute('data-tone', 'positive');
+  const shock = page.locator('#signal-board a[href="#analysis-anomalies"]');
+  await expect(shock).toContainText('TLT -4.10σ');
+  await expect(shock).toContainText('HIGH · 2 elevated outliers');
+  await expect(shock).toHaveAttribute('data-tone', 'negative');
+  await expect(page.locator('#analysis-anomalies .signal-preview tbody tr').first()).toHaveAttribute('data-signal', 'high');
+  await expect(page.locator('#signal-board a[href="#analysis-volatility"]')).toContainText('VIX 19.2% · IV−RV +5.0 pp');
+  for (const link of await page.locator('#signal-board a').all()) {
+    const target = await link.getAttribute('href');
+    await expect(page.locator(target)).toHaveCount(1);
+  }
+});
+
+test('ordinary largest moves remain ordinary and unavailable reloads remove previous signal claims', async ({ page }) => {
+  await mockMarket(page);
+  let calls = 0;
+  await page.route('**/api/analytics', (route) => {
+    const fixture = signalFixture('ORDINARY');
+    if (++calls > 1) {
+      Object.values(fixture.sections).forEach((section) => { section.status = 'unavailable'; section.metrics = []; section.tables = []; section.charts = []; });
+    }
+    return route.fulfill({ json: fixture });
+  });
+  await page.goto('/');
+  const shock = page.locator('#signal-board a[href="#analysis-anomalies"]');
+  await expect(shock).toContainText('TLT -1.80σ');
+  await expect(shock).toContainText('ORDINARY · 0 elevated outliers');
+  await expect(shock).not.toHaveAttribute('data-tone', /negative|warning/);
+  await expect(page.locator('#analysis-anomalies tr[data-signal]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Refresh evidence' }).click();
+  await expect(shock).toHaveAttribute('data-tone', 'neutral');
+  await expect(shock.locator('.signal-value')).toHaveText('Unavailable');
+  await expect(page.locator('#signal-board')).not.toContainText('TLT -1.80σ');
+  await expect(page.locator('#risk-factors .horizon-item')).toHaveCount(0);
+});
+
+test('charts expose actual observations by keyboard and pointer and preserve missing-value gaps', async ({ page }) => {
+  await mockMarket(page);
+  const fixture = analyticsFixture();
+  fixture.sections.rates.charts = [{ title: 'Treasury curve snapshots', unit: 'percent', series: [
+    { label: 'Today', points: [{ date: '2Y', value: 4.25 }, { date: '5Y', value: null }, { date: '10Y', value: 4.5 }] },
+    { label: 'Prior session', points: [{ date: '2Y', value: 4 }, { date: '5Y', value: 4.1 }, { date: '10Y', value: 4.4 }] },
+  ] }];
+  await page.route('**/api/analytics', (route) => route.fulfill({ json: fixture }));
+  await page.goto('/');
+  const chart = page.locator('#analysis-rates .signal-chart').first();
+  const plot = chart.locator('.signal-chart-plot');
+  await expect(chart.locator('.chart-readout-date')).toHaveText('10Y');
+  await plot.focus();
+  await plot.press('Home');
+  await expect(chart.locator('.chart-readout-date')).toHaveText('2Y');
+  await expect(chart.locator('.chart-readout-item strong')).toHaveText(['4.25%', '4.00%']);
+  await plot.press('ArrowRight');
+  await expect(chart.locator('.chart-readout-date')).toHaveText('5Y');
+  await expect(chart.locator('.chart-readout-item strong')).toHaveText(['—', '4.10%']);
+  const path = await chart.locator('.chart-series[data-series="0"]').getAttribute('d');
+  expect(path.match(/M/g)).toHaveLength(2);
+  expect(path).not.toContain('L');
+  await plot.press('End');
+  await expect(chart.locator('.chart-readout-item strong')).toHaveText(['4.50%', '4.40%']);
+  const legend = chart.getByRole('button', { name: /Prior session/ });
+  await legend.click();
+  await expect(legend).toHaveAttribute('aria-pressed', 'true');
+  await expect(chart.locator('.chart-series[data-series="1"]')).toHaveClass(/is-focused/);
+  const box = await plot.boundingBox();
+  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  await expect(chart.locator('.chart-readout-date')).toHaveText('2Y');
 });
 
 test('frequency and basket controls publish full annual, benchmark and attribution research', async ({ page }) => {

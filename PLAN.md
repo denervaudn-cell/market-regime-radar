@@ -1,8 +1,23 @@
 # PLAN: Market Regime Radar revamp
 
-Started: 2026-10-19. Status: V5 core and full V4 feature restoration complete; locally verified.
+Started: 2026-10-19. Status: signal-oriented visual redesign complete; V5 core and V4 feature restoration verified.
 
-## Active phase: complete V4 analytical coverage (2026-10-19)
+## Completed phase: signal-oriented visual redesign (2026-10-19)
+
+Preserve all calculated features and the new UI structure while restoring V4's vivid semantic palette and clearer focus. Color must distinguish direction, unusual magnitude and data availability, never manufacture an alert from ordinary observations. Keep mock provenance explicit.
+
+- [x] Inspect V4 visual language and current calculated payloads.
+- [x] Put horizon direction, divergence and the strongest observed signals first; move technical provenance into inspectable detail.
+- [x] Rework palette, hierarchy, tables and responsive layouts around signal strength.
+- [x] Upgrade charts with bright distinct series, readable units and accessible point inspection.
+- [x] Verify existing browser behavior, signal formatting, unavailable states, desktop/tablet/mobile layouts and keyboard access.
+- [x] Record verification and commit the local redesign.
+
+Ownership: root owns HTML and application presentation; signal_styles owns app.css; signal_charts owns new charts.js/charts.css. Financial models, source data and API contracts remain unchanged.
+
+Verification: 17 browser tests passed, including new direction/severity, stale highlight clearing, percentage units, keyboard/pointer inspection and missing-value chart checks. Ruff lint/format, both JavaScript syntax checks and diff checks passed. Actual Python mock API exercised all ten analytics families and weekly Top-5 three-strategy comparison (13 research charts, including 63 annual bars), with no console errors or page overflow. Visual checks covered 320, 390, 768, 1024 and 1440px widths; the in-app preview was refreshed and inspected. No new dependencies or backend/model changes.
+
+## Completed phase: complete V4 analytical coverage (2026-10-19)
 
 User explicitly requested every missing V4 feature, preservation of the new UI, real calculations and mock inputs for now. This supersedes the earlier decision to leave research panels unavailable. Mock data must be explicit, reproducible, identified in every API result/export and visually labelled; it must never silently replace a failed real source.
 

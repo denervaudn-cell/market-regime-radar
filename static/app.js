@@ -74,10 +74,13 @@
     const body = element('tbody');
     rows.forEach((values) => {
       const row = element('tr');
-      values.forEach((value) => {
+      values.forEach((value, index) => {
         const cell = element('td');
         if (value instanceof Node) cell.append(value);
         else cell.textContent = value ?? 'Unavailable';
+        const displayed = cell.textContent.trim();
+        if (/^[+−-]?\d[\d,.]*(?:%| pp| bps|σ)?$/.test(displayed)) cell.classList.add('numeric-cell');
+        if (index > 0 && /^(?:[+-]\d[\d,.]*%|\d[\d,.]*%)$/.test(displayed) && /return|excess|drawdown|contribution|cagr|^strategy$|^spy$/i.test(headers[index])) cell.classList.add(displayed.startsWith('-') ? 'negative' : 'positive');
         row.append(cell);
       });
       body.append(row);
@@ -89,64 +92,7 @@
   }
 
   function chart(series, title, valueLabel = 'NAV') {
-    const valid = series.filter((item) => item.points.length > 0);
-    const points = valid.flatMap((item) => item.points).filter((item) => finite(item.value) && typeof item.date === 'string');
-    if (!points.length) return unavailable('No chart observations available.');
-    const ns = 'http://www.w3.org/2000/svg';
-    const svgElement = (tag, attrs = {}, content) => {
-      const node = document.createElementNS(ns, tag);
-      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
-      if (content !== undefined) node.textContent = content;
-      return node;
-    };
-    const width = 820, height = 280, left = 58, right = 18, top = 22, bottom = 36;
-    const isDated = points.every((item) => /^\d{4}-\d{2}-\d{2}/.test(item.date) && finite(Date.parse(item.date)));
-    const categories = [...new Set(valid.flatMap((item) => item.points.map((point) => point.date)))];
-    const position = (value) => isDated ? Date.parse(value) : categories.indexOf(value);
-    const times = points.map((item) => position(item.date));
-    const values = points.map((item) => item.value);
-    const minTime = Math.min(...times), maxTime = Math.max(...times);
-    const minimum = Math.min(...values), maximum = Math.max(...values);
-    const margin = Math.max((maximum - minimum) * .1, Math.abs(maximum) * .015, .01);
-    const low = minimum - margin, high = maximum + margin;
-    const tickDigits = high - low < 10 ? 2 : high - low < 100 ? 1 : 0;
-    const x = (value) => left + (position(value) - minTime) / (maxTime - minTime || 1) * (width - left - right);
-    const y = (value) => top + (high - value) / (high - low) * (height - top - bottom);
-    const svg = svgElement('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart', role: 'img', 'aria-label': title });
-    svg.append(svgElement('title', {}, title));
-    svg.append(svgElement('desc', {}, `${valueLabel}. ${isDated ? `${date(new Date(minTime).toISOString())} to ${date(new Date(maxTime).toISOString())}` : categories.join(', ')}. Each line represents a labelled series.`));
-    for (let i = 0; i <= 4; i += 1) {
-      const value = low + (high - low) * i / 4;
-      svg.append(svgElement('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: 'axis' }));
-      svg.append(svgElement('text', { x: left - 10, y: y(value) + 4, 'text-anchor': 'end' }, number(value, tickDigits)));
-    }
-    const axisLabels = isDated ? [new Date(minTime).toISOString(), new Date(maxTime).toISOString()] : categories.filter((_, index) => index === 0 || index === categories.length - 1 || categories.length <= 10);
-    axisLabels.forEach((value, index) => svg.append(svgElement('text', {
-      x: x(value), y: height - 8, 'text-anchor': index === 0 ? 'start' : index === axisLabels.length - 1 ? 'end' : 'middle',
-    }, isDated ? date(value) : value)));
-    valid.forEach((item) => {
-      // A missing observation breaks a path; it is never converted into a zero.
-      let drawing = false;
-      const path = item.points.map((point) => {
-        if (!finite(point.value) || typeof point.date !== 'string') { drawing = false; return ''; }
-        const command = drawing ? 'L' : 'M';
-        drawing = true;
-        return `${command}${x(point.date).toFixed(2)},${y(point.value).toFixed(2)}`;
-      }).join(' ');
-      svg.append(svgElement('path', { d: path, fill: 'none', stroke: item.color, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
-      if (!isDated || item.points.length === 1) item.points.filter((point) => finite(point.value)).forEach((point) => svg.append(svgElement('circle', { cx: x(point.date), cy: y(point.value), r: 3, fill: item.color })));
-    });
-    const wrapper = element('div', 'chart-wrap');
-    wrapper.append(svg);
-    const legend = element('div', 'chart-legend');
-    valid.forEach((item) => {
-      const label = element('span', 'legend-item');
-      const line = element('span', 'legend-line');
-      line.classList.add({ '#7de0c5': 'mint', '#91b5ff': 'blue', '#e8ba83': 'amber', '#9ca8b9': 'gray' }[item.color] || 'gray');
-      label.append(line, document.createTextNode(item.label));
-      legend.append(label);
-    });
-    return fragment(wrapper, legend);
+    return window.RadarCharts.render(series, title, valueLabel);
   }
 
   async function request(path, controller, allowDegradedMarket = false) {
@@ -243,7 +189,7 @@
     return number(item.value);
   }
 
-  const palette = ['#7de0c5', '#91b5ff', '#e8ba83', '#9ca8b9'];
+  const palette = ['#29d49a', '#4ea5ff', '#f2bc55', '#91a4bd', '#4bd9ff', '#9b83ff', '#f06673', '#e8a3db'];
   const analyticalGroups = {
     'analytics-overview': ['risk', 'changes'],
     'analytics-markets': ['correlations', 'rates', 'volatility', 'fx'],
@@ -259,7 +205,7 @@
     const mock = source?.kind === 'mock';
     $('mock-notice').hidden = !mock;
     $('source-indicator').hidden = !mock;
-    if (mock) $('mock-description').textContent = `${sourceLabel(source)}. All prices, regimes and performance are simulated. Calculations use the same engine and data contract as a real feed.`;
+    if (mock) $('mock-description').textContent = `Simulated prices, regimes and performance · Seed ${source.seed ?? 'unspecified'}. Real calculations; the same data contract will accept the data_mesh feed.`;
   }
 
   function downloadButton(payload, filename, label) {
@@ -276,10 +222,38 @@
     return button;
   }
 
+  // Presentation follows the API's classifications; color is never a probability.
+  function classificationTone(value) {
+    const label = typeof value === 'string' ? value.toUpperCase() : '';
+    if (/^(BULLISH|OVERWEIGHT|FAVOR)$/.test(label)) return 'positive';
+    if (/^(BEARISH|UNDERWEIGHT|AVOID|PANIC|STRESS|HIGH)$/.test(label)) return 'negative';
+    if (/^(MID|ELEVATED|RICH)$/.test(label) || /CONFLICT|BREAK/.test(label)) return 'warning';
+    return 'info';
+  }
+
+  function signalPill(value, labelTone = classificationTone(value)) {
+    const pill = element('span', 'signal-pill', value);
+    pill.dataset.tone = labelTone;
+    return pill;
+  }
+
+  function metricValue(section, label) {
+    return list(section?.metrics).find((item) => item.label === label)?.value;
+  }
+
+  function metricTone(item) {
+    if (item.label === 'Top sector' && typeof item.value === 'string') return 'positive';
+    if (item.label === 'Bottom sector' && typeof item.value === 'string') return 'negative';
+    if (typeof item.value === 'string') return classificationTone(item.value);
+    if (/risk score|risk fx|contribution|momentum|return|spread per cycle/i.test(item.label) && !/percentile|volatility/i.test(item.label)) return tone(item.value) || 'neutral';
+    return 'neutral';
+  }
+
   function analyticalMetrics(items) {
     const grid = element('div', 'metrics analytical-metrics');
     list(items).forEach((item) => {
       const metric = element('div', 'metric');
+      metric.dataset.tone = metricTone(item);
       metric.append(element('div', 'label', text(item.label)), element('div', 'value', panelValue(item)));
       if (item.reason || item.summary) metric.append(element('div', 'reason', item.reason || item.summary));
       grid.append(metric);
@@ -291,48 +265,170 @@
     const columns = list(value.columns);
     const correlation = /correlation/i.test(value.title || '') && columns.length > 2;
     const node = table(columns, list(value.rows).map((row) => list(row).map((cell, index) => {
-      if (!finite(cell)) return cell === null ? '—' : String(cell);
+      const label = columns[index] || '';
+      if (!finite(cell)) {
+        if (typeof cell === 'string' && /^(severity|preference|current state)$/i.test(label)) return signalPill(cell);
+        return cell === null ? '—' : String(cell);
+      }
       const digits = /^(rank|count|periods|sessions)$/i.test(columns[index]) ? 0 : columns[index] === 'Quote' ? 4 : 2;
       if (correlation && index > 0) {
         const content = element('span', `heat-cell ${cell >= 0 ? 'positive' : 'negative'}-${Math.min(4, Math.ceil(Math.abs(cell) * 4))}`, number(cell));
+        if (row[0] === columns[index]) content.classList.add('heat-diagonal');
         content.title = `${row[0]} / ${columns[index]}: ${number(cell, 4)}`;
         content.tabIndex = 0;
         return content;
       }
-      return number(cell, digits);
+      if (/display score|similarity \(0/.test(label.toLowerCase())) {
+        const content = element('span', 'score-cell');
+        const meter = element('meter');
+        meter.min = 0; meter.max = 100; meter.value = cell;
+        meter.setAttribute('aria-label', `${row[0]} ${label}: ${number(cell)}`);
+        content.dataset.tone = classificationTone(row[columns.indexOf('Preference')]);
+        content.append(element('span', '', number(cell, 1)), meter);
+        return content;
+      }
+      const signed = /change|return|momentum|acceleration|contribution|signed z|prior-history z/i.test(label);
+      const content = element('span', signed ? tone(cell) : '', `${signed && cell > 0 ? '+' : ''}${number(cell, digits)}`);
+      if (/signed z|prior-history z/i.test(label)) {
+        const severity = row[columns.indexOf('Severity')];
+        content.className = 'anomaly-value';
+        content.dataset.tone = severity ? classificationTone(severity) : 'neutral';
+        content.textContent += 'σ';
+      }
+      return content;
     })), value.summary);
-    if (correlation) node.querySelector('table').classList.add('heatmap');
+    if (correlation) {
+      node.querySelector('table').classList.add('heatmap');
+      node.append(element('p', 'small muted', 'Positive = move together · Negative = move oppositely. Color shows correlation sign and magnitude, not investment merit.'));
+    }
+    const severityIndex = columns.indexOf('Severity');
+    if (severityIndex >= 0) node.querySelectorAll('tbody tr').forEach((row, index) => {
+      const severity = value.rows[index]?.[severityIndex];
+      if (severity === 'HIGH' || severity === 'ELEVATED') row.dataset.signal = severity.toLowerCase();
+    });
     return node;
   }
+
+  const primaryMetrics = {
+    risk: ['Horizon divergence', 'Horizon alignment', '1M signal strength'],
+    rates: ['Rates regime', 'Curve level', '2s10s slope', 'Duration research bias'],
+    volatility: ['Volatility regime', 'VIX implied volatility', 'Realized volatility 20D', 'IV−RV20 premium'],
+  };
 
   function renderAnalyticalSection(key, section) {
     const card = element('article', `card analytical-card analytical-${key}`);
     card.dataset.analysis = key;
+    card.id = `analysis-${key}`;
+    const classification = list(section?.metrics).find((item) => /regime$|^Horizon divergence$/.test(item.label));
+    card.dataset.tone = classificationTone(classification?.value);
     const heading = element('div', 'card-heading');
     heading.append(element('h3', '', text(section?.title, key)), badge(section?.status));
-    card.append(heading, element('p', 'analysis-summary', text(section?.summary, 'No calculation has been published for this section.')));
+    card.append(heading);
     if (!section) return card;
-    if (list(section.metrics).length) card.append(analyticalMetrics(section.metrics));
+    const summary = text(section.summary, 'No calculation has been published for this section.');
+    const lead = summary.split(/(?<=\.)\s/)[0];
+    card.append(element('p', 'analysis-summary', lead));
+    const preferred = primaryMetrics[key];
+    const featured = preferred ? list(section.metrics).filter((item) => preferred.includes(item.label)) : list(section.metrics).slice(0, 4);
+    const shown = featured.length ? featured : list(section.metrics).slice(0, 4);
+    if (shown.length) card.append(analyticalMetrics(shown));
     const content = element('div', 'analysis-evidence');
+    const remaining = list(section.metrics).filter((item) => !shown.includes(item));
+    if (remaining.length) content.append(analyticalMetrics(remaining));
+    if (summary !== lead) content.append(element('p', 'small muted', summary));
     list(section.charts).forEach((item, index) => {
       const figure = element('figure', 'analytical-figure');
       figure.append(element('figcaption', '', `${text(item.title)}${item.unit ? ` · ${item.unit}` : ''}`));
       if (item.summary) figure.append(element('p', 'small muted', item.summary));
       figure.append(chart(list(item.series).map((series, index) => ({ ...series, points: list(series.points), color: palette[index % palette.length] })), text(item.title), item.unit));
-      if (index === 0 && ['risk', 'rates', 'volatility', 'fx', 'analogues'].includes(key)) card.append(figure);
+      if (index === 0 && ['risk', 'rates', 'volatility', 'fx', 'analogues', 'correlations'].includes(key)) card.append(figure);
       else content.append(figure);
     });
-    list(section.tables).forEach((item) => {
+    list(section.tables).forEach((item, index) => {
       const group = element('div', 'analysis-table');
       group.append(element('h4', '', text(item.title)), analyticalTable(item));
-      content.append(group);
+      if (index === 0 && ['changes', 'anomalies'].includes(key)) {
+        const zIndex = list(item.columns).findIndex((label) => /prior-history z|signed z/i.test(label));
+        const rows = [...list(item.rows)];
+        if (zIndex >= 0) rows.sort((a, b) => (finite(b[zIndex]) ? Math.abs(b[zIndex]) : -1) - (finite(a[zIndex]) ? Math.abs(a[zIndex]) : -1));
+        const preview = element('div', 'analysis-table signal-preview');
+        preview.append(element('h4', '', 'Largest moves · by standardized magnitude'), analyticalTable({ ...item, rows: rows.slice(0, 5) }));
+        card.append(preview);
+        content.append(group);
+      } else if (index === 0 && key === 'sectors' && item.columns.includes('Display score (0–100)')) {
+        const columns = ['Sector', 'Rank', 'Display score (0–100)', 'Preference', '6M momentum (%)'];
+        const positions = columns.map((label) => item.columns.indexOf(label));
+        card.append(analyticalTable({ title: item.title, columns, rows: list(item.rows).map((row) => positions.map((position) => row[position])), summary: 'Ranks use the raw model score. Display scores are clipped to 0–100; full precision and factor contributions are below.' }));
+        content.append(group);
+      } else if (index === 0 && ['sectors', 'playbook'].includes(key)) card.append(group);
+      else content.append(group);
     });
     if (content.childElementCount) {
-      const expandable = details(`Explore ${text(section.title, key).toLowerCase()} · ${list(section.charts).length} charts / ${list(section.tables).length} tables`, content);
-      expandable.open = key === 'sectors' || key === 'changes';
+      const expandable = details(`Explore ${text(section.title, key).toLowerCase()} · all evidence & methodology`, content);
       card.append(expandable);
     }
     return card;
+  }
+
+  function renderSignalBoard(sections) {
+    const board = document.createDocumentFragment();
+    const add = (key, kicker, value, context, signalTone = 'info') => {
+      const section = sections[key];
+      const usable = section && section.status !== 'unavailable';
+      const card = element('a', 'signal-card');
+      card.href = `#analysis-${key}`;
+      card.dataset.tone = usable ? signalTone : 'neutral';
+      card.append(element('span', 'signal-kicker', kicker), element('strong', 'signal-value', usable ? value : 'Unavailable'), element('span', 'signal-context', usable ? context : 'Required observations are missing.'), element('span', 'signal-link', `${usable ? 'Inspect signal' : 'Inspect coverage'} ↗`));
+      if (usable && section.status !== 'ready') card.append(badge(section.status));
+      board.append(card);
+    };
+    const divergence = metricValue(sections.risk, 'Horizon divergence');
+    add('risk', '01 / Horizon agreement', divergence ? `${divergence} divergence` : 'Not classified', text(metricValue(sections.risk, 'Horizon alignment'), 'Read the individual horizon scores.'), classificationTone(divergence));
+    const anomalies = list(sections.anomalies?.tables).find((item) => list(item.columns).includes('Signed z'));
+    const zIndex = anomalies?.columns.indexOf('Signed z');
+    const strongest = [...list(anomalies?.rows)].filter((row) => finite(row[zIndex])).sort((a, b) => Math.abs(b[zIndex]) - Math.abs(a[zIndex]))[0];
+    const severity = strongest?.[anomalies.columns.indexOf('Severity')];
+    const count = metricValue(sections.anomalies, 'Elevated anomalies');
+    add('anomalies', '02 / Largest daily move', strongest ? `${strongest[0]} ${strongest[zIndex] > 0 ? '+' : ''}${number(strongest[zIndex])}σ` : 'Unavailable', strongest ? `${text(severity)} · ${finite(count) ? count : 'Unknown'} elevated outliers. Magnitude is not a trade direction.` : 'No comparable daily shock history.', classificationTone(severity));
+    const volRegime = metricValue(sections.volatility, 'Volatility regime');
+    const vix = metricValue(sections.volatility, 'VIX implied volatility');
+    const premium = metricValue(sections.volatility, 'IV−RV20 premium');
+    add('volatility', '03 / Volatility watch', text(volRegime), `VIX ${finite(vix) ? `${number(vix, 1)}%` : 'unavailable'} · IV−RV ${finite(premium) ? `${premium > 0 ? '+' : ''}${number(premium, 1)} pp` : 'unavailable'}`, classificationTone(volRegime));
+    const leader = metricValue(sections.sectors, 'Top sector');
+    const laggard = metricValue(sections.sectors, 'Bottom sector');
+    add('sectors', '04 / Sector rotation', leader ? `${leader} leads` : 'Unavailable', `${text(laggard)} ranks last · Relative research preference, not a trade order.`, leader ? 'positive' : 'neutral');
+    return board;
+  }
+
+  function renderHorizonRisk(risk) {
+    const horizons = ['1D', '1W', '1M'].map((horizon) => {
+      const score = metricValue(risk, `${horizon} risk score`);
+      // Direction is published by the analytical engine, not recalculated in the UI.
+      const match = typeof risk.summary === 'string' ? risk.summary.match(new RegExp(`${horizon}: (Bullish|Bearish|Neutral|Unavailable)`, 'i')) : null;
+      return { horizon, score, direction: match?.[1] || (finite(score) ? 'Score available' : 'Unavailable') };
+    });
+    const current = horizons[0];
+    const hasDirection = ['Bullish', 'Bearish', 'Neutral'].includes(current.direction);
+    const headline = hasDirection ? `Short-term ${current.direction.toLowerCase()}` : 'Multi-horizon view';
+    const hero = element('div', 'risk-headline', headline);
+    hero.dataset.tone = classificationTone(current.direction);
+    $('risk-bias').closest('.bias-card').dataset.tone = classificationTone(current.direction);
+    const alignment = metricValue(risk, 'Horizon alignment');
+    $('risk-bias').replaceChildren(hero, element('p', 'risk-caption', text(alignment, risk.summary)), element('p', 'small muted', 'Research scores · −100 defensive to +100 constructive. Strength is not a forecast probability.'));
+    const grid = element('div', 'horizon-grid');
+    horizons.forEach(({ horizon, score, direction }) => {
+      const item = element('div', 'horizon-item');
+      item.dataset.tone = classificationTone(direction);
+      item.append(element('span', 'horizon-label', horizon === '1D' ? '1 DAY' : horizon === '1W' ? '1 WEEK' : '1 MONTH'), element('strong', 'horizon-value', finite(score) ? `${score > 0 ? '+' : ''}${number(score)}` : '—'), element('span', 'horizon-direction', direction));
+      if (finite(score)) {
+        const meter = element('meter');
+        meter.min = -100; meter.max = 100; meter.value = score;
+        meter.setAttribute('aria-label', `${horizon} risk score: ${number(score)}, ${direction}`);
+        item.append(meter);
+      }
+      grid.append(item);
+    });
+    $('risk-factors').replaceChildren(grid);
   }
 
   function renderAnalytics(data) {
@@ -342,14 +438,15 @@
     });
     const risk = sections.risk;
     if (risk && risk.status !== 'unavailable') {
-      $('risk-bias').replaceChildren(element('p', 'bias-label', 'Multi-horizon view'), element('p', 'bias-explanation', text(risk.summary)), element('p', 'small muted', 'Signed research scores: −100 defensive to +100 constructive. Not calibrated probabilities.'));
-      $('risk-factors').replaceChildren(analyticalMetrics(list(risk.metrics).slice(0, 3)));
+      renderHorizonRisk(risk);
     }
+    $('signal-board').replaceChildren(renderSignalBoard(sections));
     $('analytics-sectors').append(downloadButton(data, `radar-analytics-${data.as_of}.json`, 'Download all analytics · JSON'));
   }
 
   function clearAnalytics(message = 'No current calculation available.') {
     Object.keys(analyticalGroups).forEach((id) => $(id).replaceChildren(unavailable(message)));
+    $('signal-board').replaceChildren(unavailable(message));
   }
 
   function renderPanels(panels) {
@@ -386,6 +483,7 @@
   }
 
   function clearMarket() {
+    $('risk-bias').closest('.bias-card').removeAttribute('data-tone');
     $('risk-bias').replaceChildren(element('p', 'unavailable', 'Unavailable'), element('p', 'bias-explanation', 'No current market result is published.'));
     $('risk-factors').replaceChildren(unavailable('Required evidence is unavailable.'));
     $('assets-table').replaceChildren(unavailable('No market observations available.'));
@@ -440,7 +538,10 @@
       $('market-status').replaceWith(Object.assign(badge(data.status, `Market evidence · ${text(data.status)}`), { id: 'market-status' }));
       $('market-status').setAttribute('role', 'status');
       $('coverage-status').replaceWith(Object.assign(badge(data.status), { id: 'coverage-status' }));
-      $('market-provenance').textContent = `${sourceLabel(data.source)} · As of ${date(data.as_of)} · Dataset ${data.dataset_id}`;
+      const snapshotLink = element('a', '', `As of ${date(data.as_of)} · Snapshot ${data.dataset_id.replace(/^sha256:/, '').slice(0, 8)} ↗`);
+      snapshotLink.href = '#coverage';
+      snapshotLink.title = `Dataset ${data.dataset_id} · ${sourceLabel(data.source)}`;
+      $('market-provenance').replaceChildren(snapshotLink);
       if (data.status !== 'ready') {
         $('market-error').textContent = 'Market coverage is incomplete or stale. Inspect each observation’s status and the dataset coverage below.';
         $('market-error').hidden = false;
@@ -521,6 +622,8 @@
       if (key === 'max_drawdown_daily' && stats[key] === undefined) { key = 'max_drawdown_monthly'; label = 'Monthly drawdown'; }
       const metric = element('div', 'metric');
       metric.dataset.metric = key;
+      if (['cagr', 'total_return', 'benchmark_total_return', 'max_drawdown_daily', 'max_drawdown_monthly'].includes(key)) metric.dataset.tone = tone(stats[key]) || 'neutral';
+      if (key === 'cagr' || key.startsWith('max_drawdown')) metric.classList.add('metric-primary');
       metric.append(element('div', 'label', label), element('div', 'value', formatter(stats[key])));
       if (!finite(stats[key])) metric.append(element('div', 'reason', text(stats.metric_status?.[key], 'Metric unavailable')));
       grid.append(metric);
@@ -623,9 +726,11 @@
     if (period.excluded_partial) provenance.append(element('p', 'small muted', 'The incomplete final period is excluded from completed-period statistics.'));
     if (Object.values(data.results).some((result) => result.status === 'ruined')) provenance.append(element('p', 'negative small', 'A strategy reached its terminal loss condition. Its curve stops at ruin; unavailable metrics retain their reason.'));
     provenance.append(downloadButton(data, `radar-${params.mode}-${params.start}.json`, 'Download this run · JSON'));
-    output.append(provenance);
+    const runDetails = details(`Run details · ${data.source?.kind === 'mock' ? 'MOCK DATA · ' : ''}${params.rebalance} · trading ${number(params.cost_bps, 1)} bps`, provenance);
+    runDetails.classList.add('snapshot-details');
+    output.append(runDetails);
     const entries = Object.entries(data.results);
-    const colors = { extreme1: '#7de0c5', ranked3: '#91b5ff', longonly3: '#e8ba83' };
+    const colors = { extreme1: palette[0], ranked3: palette[1], longonly3: palette[2] };
     if (entries.length > 1) {
       const comparison = element('article', 'card stat-comparison');
       comparison.append(element('h3', 'results-title', 'Strategy comparison'));
@@ -698,7 +803,7 @@
       if (sequence !== runSequence) return;
       setState('run', { phase: 'success', params, result: data });
       $('run-results').replaceChildren(result);
-      $('run-status').textContent = `Research complete · ${Object.keys(data.results).length} ${params.mode === 'compare' ? 'strategies' : 'strategy'} · Dataset ${data.dataset_id} · Model ${data.model_version}`;
+      $('run-status').textContent = `Research complete · ${Object.keys(data.results).length} ${params.mode === 'compare' ? 'strategies' : 'strategy'} · ${date(data.period.first_execution)} → ${date(data.period.last_complete_return)}`;
       $('run-status').dataset.phase = 'success';
     } catch (error) {
       if (sequence !== runSequence) return;
@@ -783,6 +888,20 @@
   $('backtest-form').addEventListener('input', invalidateRun);
   $('backtest-form').addEventListener('change', invalidateRun);
   $('run-studies').addEventListener('click', runStudies);
+  const navLinks = [...document.querySelectorAll('.sidebar nav a')];
+  let navScheduled = false;
+  const updateNavigation = () => {
+    const current = navLinks.filter((link) => document.querySelector(link.hash)?.getBoundingClientRect().top <= 150).at(-1) || navLinks[0];
+    navLinks.forEach((link) => {
+      if (link === current) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+    navScheduled = false;
+  };
+  window.addEventListener('scroll', () => {
+    if (!navScheduled) { navScheduled = true; requestAnimationFrame(updateNavigation); }
+  }, { passive: true });
+  updateNavigation();
   window.addEventListener('pagehide', () => { marketController?.abort(); runController?.abort(); studyController?.abort(); });
   updateControls();
   $('derived-panels').replaceChildren(renderPanels(null));
